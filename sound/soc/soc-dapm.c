@@ -826,6 +826,7 @@ static void dapm_seq_run(struct snd_soc_codec *codec, struct list_head *list,
 	struct snd_soc_dapm_widget *w, *n;
 	LIST_HEAD(pending);
 	int cur_sort = -1;
+	int cur_subseq = -1;
 	int cur_reg = SND_SOC_NOPM;
 	int ret;
 
@@ -833,12 +834,14 @@ static void dapm_seq_run(struct snd_soc_codec *codec, struct list_head *list,
 		ret = 0;
 
 		/* Do we need to apply any queued changes? */
-		if (sort[w->id] != cur_sort || w->reg != cur_reg) {
+		if (sort[w->id] != cur_sort || w->reg != cur_reg ||
+		    w->subseq != cur_subseq) {
 			if (!list_empty(&pending))
 				dapm_seq_run_coalesced(codec, &pending);
 
 			INIT_LIST_HEAD(&pending);
 			cur_sort = -1;
+			cur_subseq = -1;
 			cur_reg = SND_SOC_NOPM;
 		}
 
@@ -882,6 +885,7 @@ static void dapm_seq_run(struct snd_soc_codec *codec, struct list_head *list,
 		default:
 			/* Queue it up for application */
 			cur_sort = sort[w->id];
+			cur_subseq = w->subseq;
 			cur_reg = w->reg;
 			list_move(&w->power_list, &pending);
 			break;
