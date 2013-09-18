@@ -35,6 +35,10 @@ static inline enum usb_phy_interface of_usb_get_phy_mode(struct device_node *np)
 	return USBPHY_INTERFACE_MODE_UNKNOWN;
 }
 
+static inline enum usb_dr_mode of_usb_get_dr_mode(struct device_node *np)
+{
+	return USB_DR_MODE_UNKNOWN;
+}
 #endif
 
 #endif /* __LINUX_USB_OF_H */
