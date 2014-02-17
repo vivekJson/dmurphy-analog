@@ -385,6 +385,11 @@ struct phy_driver {
 	u32 flags;
 
 	/*
+	 * Called to issue a PHY software reset
+	 */
+	int (*soft_reset)(struct phy_device *phydev);
+
+	/*
 	 * Called to initialize the PHY,
 	 * including after a reset
 	 */
@@ -574,6 +579,7 @@ static inline int phy_read_status(struct phy_device *phydev) {
 }
 
 int genphy_config_init(struct phy_device *phydev);
+int genphy_soft_reset(struct phy_device *phydev);
 int genphy_restart_aneg(struct phy_device *phydev);
 int genphy_config_aneg(struct phy_device *phydev);
 int genphy_update_link(struct phy_device *phydev);

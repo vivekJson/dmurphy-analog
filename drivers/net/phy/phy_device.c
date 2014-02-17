@@ -496,12 +496,60 @@ void phy_disconnect(struct phy_device *phydev)
 }
 EXPORT_SYMBOL(phy_disconnect);
 
+/**
+ * phy_poll_reset - Safely wait until a PHY reset has properly completed
+ * @phydev: The PHY device to poll
+ *
+ * Description: According to IEEE 802.3, Section 2, Subsection 22.2.4.1.1, as
+ *   published in 2008, a PHY reset may take up to 0.5 seconds.  The MII BMCR
+ *   register must be polled until the BMCR_RESET bit clears.
+ *
+ *   Furthermore, any attempts to write to PHY registers may have no effect
+ *   or even generate MDIO bus errors until this is complete.
+ *
+ *   Some PHYs (such as the Marvell 88E1111) don't entirely conform to the
+ *   standard and do not fully reset after the BMCR_RESET bit is set, and may
+ *   even *REQUIRE* a soft-reset to properly restart autonegotiation.  In an
+ *   effort to support such broken PHYs, this function is separate from the
+ *   standard phy_init_hw() which will zero all the other bits in the BMCR
+ *   and reapply all driver-specific and board-specific fixups.
+ */
+static int phy_poll_reset(struct phy_device *phydev)
+{
+	/* Poll until the reset bit clears (50ms per retry == 0.6 sec) */
+	unsigned int retries = 12;
+	int ret;
+
+	do {
+		msleep(50);
+		ret = phy_read(phydev, MII_BMCR);
+		if (ret < 0)
+			return ret;
+	} while (ret & BMCR_RESET && --retries);
+	if (ret & BMCR_RESET)
+		return -ETIMEDOUT;
+
+	/* Some chips (smsc911x) may still need up to another 1ms after the
+	 * BMCR_RESET bit is cleared before they are usable.
+	 */
+	msleep(1);
+	return 0;
+}
+
 int phy_init_hw(struct phy_device *phydev)
 {
-	int ret;
+	int ret = 0;
 
 	if (!phydev->drv || !phydev->drv->config_init)
 		return 0;
+
+	if (phydev->drv->soft_reset)
+		ret = phydev->drv->soft_reset(phydev);
+	else
+		ret = genphy_soft_reset(phydev);
+
+	if (ret < 0)
+		return ret;
 
 	ret = phy_scan_fixups(phydev);
 	if (ret < 0)
@@ -912,6 +960,27 @@ int genphy_read_status(struct phy_device *phydev)
 }
 EXPORT_SYMBOL(genphy_read_status);
 
+/**
+ * genphy_soft_reset - software reset the PHY via BMCR_RESET bit
+ * @phydev: target phy_device struct
+ *
+ * Description: Perform a software PHY reset using the standard
+ * BMCR_RESET bit and poll for the reset bit to be cleared.
+ *
+ * Returns: 0 on success, < 0 on failure
+ */
+int genphy_soft_reset(struct phy_device *phydev)
+{
+	int ret;
+
+	ret = phy_write(phydev, MII_BMCR, BMCR_RESET);
+	if (ret < 0)
+		return ret;
+
+	return phy_poll_reset(phydev);
+}
+EXPORT_SYMBOL(genphy_soft_reset);
+
 int genphy_config_init(struct phy_device *phydev)
 {
 	int val;
@@ -958,7 +1027,6 @@ int genphy_config_init(struct phy_device *phydev)
 
 	return 0;
 }
-
 EXPORT_SYMBOL(genphy_config_init);
 
 int genphy_suspend(struct phy_device *phydev)
@@ -1116,6 +1184,7 @@ static struct phy_driver genphy_driver = {
 	.phy_id		= 0xffffffff,
 	.phy_id_mask	= 0xffffffff,
 	.name		= "Generic PHY",
+	.soft_reset	= genphy_soft_reset,
 	.config_init	= genphy_config_init,
 	.features	= 0,
 	.config_aneg	= genphy_config_aneg,
