@@ -62,6 +62,15 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 	};
+
+	sound {
+		compatible = "ti,tas2552-evm-audio";
+		ti,model = "AM335x-EVM";
+		ti,audio-codec = <&tas2552>;
+		ti,mcasp-controller = <&mcasp0>;
+		ti,codec-clock-rate = <24576000>;
+		ti,audio-routing = "Speaker", "HPLOUT";
+	};
 };
 
 &am33xx_pinmux {
@@ -81,6 +90,20 @@
 		pinctrl-single,pins = <
 			0x188 (PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c0_sda.i2c0_sda */
 			0x18c (PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c0_scl.i2c0_scl */
+		>;
+	};
+
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			0x158 (PIN_INPUT_PULLUP | MUX_MODE2) 	/* spi0_d1.i2c1_sda */
+			0x15c (PIN_INPUT_PULLUP | MUX_MODE2)	/* spi0_cs0.i2c1_scl */
+		>;
+	};
+
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			0x178 (PIN_INPUT_PULLUP | MUX_MODE3)    /* uart1_ctsn.i2c2_sda */
+			0x17c (PIN_INPUT_PULLUP | MUX_MODE3)    /* uart1_rtsn.i2c2_scl */
 		>;
 	};
 
@@ -171,6 +194,19 @@
 			0x1c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad7.mmc1_dat7 */
 		>;
 	};
+
+	mcasp0_pins: mcasp0_pins {
+		pinctrl-single,pins = <
+			0xdc MUX_MODE3 /* lcd_data15.mcasp0_ahclkx */
+			0xcc (PIN_INPUT_PULLUP | MUX_MODE3)	/* lcd_data11.mcasp0_ahclkr */
+			0xd4 (PIN_INPUT_PULLUP | MUX_MODE3)	/* lcd_data13.mcasp0_fsr */
+			0xd0 (PIN_INPUT_PULLUP | MUX_MODE3)	/* lcd_data12.mcasp0_aclkr */
+			0xc4 MUX_MODE3	/* lcd_data9.mcasp0_fsx */
+			0xc0 MUX_MODE3  /* lcd_data8.mcasp0_aclkx */
+			0xd8 MUX_MODE3	/* lcd_data14.mcasp0_axr1 */
+			0xc8 MUX_MODE3	/* lcd_data10.mcasp0_axr0 */
+		>;
+	};
 };
 
 &uart0 {
@@ -210,16 +246,38 @@
 };
 
 &i2c0 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c0_pins>;
 
-	status = "okay";
 	clock-frequency = <400000>;
 
 	tps: tps@24 {
 		reg = <0x24>;
 	};
+};
 
+&i2c1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+
+	clock-frequency = <400000>;
+
+};
+
+&i2c2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+
+	clock-frequency = <400000>;
+
+	tas2552: tas2552@0 {
+		compatible = "ti,tas2552";
+		reg = <0x41>;
+		enable-gpio = <&gpio1 28 GPIO_ACTIVE_HIGH>;  /* 28 */
+	};
 };
 
 /include/ "tps65217.dtsi"
@@ -297,4 +355,20 @@
 	pinctrl-0 = <&mmc1_pins>;
 	cd-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
 	cd-inverted;
+};
+
+&mcasp0 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&mcasp0_pins>;
+
+		status = "okay";
+
+		op-mode = <0>;          /* MCASP_IIS_MODE */
+		tdm-slots = <2>;
+		/* 4 serializers */
+		serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+			1 2 0 0
+		>;
+		tx-num-evt = <1>;
+		rx-num-evt = <1>;
 };
