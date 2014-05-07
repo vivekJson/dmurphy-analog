@@ -222,7 +222,7 @@ static struct snd_soc_dai_link dm6467_evm_dai[] = {
 			   SND_SOC_DAIFMT_IB_NF,
 	},
 };
-
+/*
 static struct snd_soc_dai_link da830_evm_dai = {
 	.name = "TLV320AIC3X",
 	.stream_name = "AIC3X",
@@ -235,7 +235,7 @@ static struct snd_soc_dai_link da830_evm_dai = {
 	.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_CBM_CFM |
 		   SND_SOC_DAIFMT_IB_NF,
 };
-
+*/
 static struct snd_soc_dai_link da850_evm_dai = {
 	.name = "TLV320AIC3X",
 	.stream_name = "AIC3X",
@@ -245,8 +245,20 @@ static struct snd_soc_dai_link da850_evm_dai = {
 	.platform_name = "davinci-mcasp.0",
 	.init = evm_aic3x_init,
 	.ops = &evm_ops,
-	.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_CBM_CFM |
+	.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_CBS_CFS |
 		   SND_SOC_DAIFMT_IB_NF,
+};
+
+static struct snd_soc_dai_link tas2552_evm_dai = {
+	.name = "TAS2552",
+	.stream_name = "TAS2552",
+	.cpu_dai_name = "davinci-mcasp.0",
+	.codec_dai_name = "TAS2552-amplifier",
+	.codec_name = "tas2552.2-0041",
+	.platform_name = "davinci-mcasp.0",
+	.ops = &evm_ops,
+	.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS |
+			SND_SOC_DAIFMT_NB_NF,
 };
 
 /* davinci dm6446 evm audio machine driver */
@@ -310,11 +322,19 @@ static struct snd_soc_card dm6467_snd_soc_card_evm = {
 static struct snd_soc_card_drvdata_davinci da830_snd_soc_card_drvdata = {
 	.sysclk = 24576000,
 };
-
+/*
 static struct snd_soc_card da830_snd_soc_card = {
 	.name = "DA830/OMAP-L137 EVM",
 	.owner = THIS_MODULE,
 	.dai_link = &da830_evm_dai,
+	.num_links = 1,
+	.drvdata = &da830_snd_soc_card_drvdata,
+};
+*/
+static struct snd_soc_card da830_snd_soc_card = {
+	.name = "DA830/OMAP-L137 EVM",
+	.owner = THIS_MODULE,
+	.dai_link = &tas2552_evm_dai,
 	.num_links = 1,
 	.drvdata = &da830_snd_soc_card_drvdata,
 };
@@ -337,6 +357,7 @@ static struct snd_soc_card da850_snd_soc_card = {
  * The struct is used as place holder. It will be completely
  * filled with data from dt node.
  */
+/*
 static struct snd_soc_dai_link evm_dai_tlv320aic3x = {
 	.name		= "TLV320AIC3X",
 	.stream_name	= "AIC3X",
@@ -346,11 +367,21 @@ static struct snd_soc_dai_link evm_dai_tlv320aic3x = {
 	.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_CBM_CFM |
 		   SND_SOC_DAIFMT_IB_NF,
 };
+*/
+
+static struct snd_soc_dai_link evm_dai_tas2552 = {
+	.name		= "TAS2552",
+	.stream_name	= "Playback",
+	.codec_dai_name	= "tas2552-amplifier",
+	.ops            = &evm_ops,
+	.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS |
+			SND_SOC_DAIFMT_NB_NF,
+};
 
 static const struct of_device_id davinci_evm_dt_ids[] = {
 	{
-		.compatible = "ti,da830-evm-audio",
-		.data = (void *) &evm_dai_tlv320aic3x,
+		.compatible = "ti,tas2552-evm-audio",
+		.data = (void *) &evm_dai_tas2552,
 	},
 	{ /* sentinel */ }
 };
