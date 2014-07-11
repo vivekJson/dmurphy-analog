@@ -115,6 +115,145 @@ static const struct snd_soc_dapm_route tas2552_audio_map[] = {
 	{"ClassD", NULL, "PLL"},
 };
 
+/* Remove this line to disable debug */
+#define TAS2552_DEBUG
+
+#ifdef TAS2552_DEBUG
+/* The registers can be accessed via
+ * cat /sys/class/i2c-adapter/i2c-2/2-0041/registers
+ * And written through echo for example
+ * echo "CFG1 0x00" > /sys/class/i2c-adapter/i2c-2/2-0041/registers
+ */
+struct tas2552_reg {
+	const char *name;
+	uint8_t reg;
+	int writeable;
+} tas2552_regs[] = {
+	{ "STATUS",		TAS2552_DEVICE_STATUS, 1 },
+	{ "CFG1",		TAS2552_CFG_1, 1 },
+	{ "CFG2",		TAS2552_CFG_2, 1 },
+	{ "CFG3",		TAS2552_CFG_3, 1 },
+	{ "DOUT",		TAS2552_DOUT, 1 },
+	{ "SER_CTRL_1",	TAS2552_SER_CTRL_1, 1 },
+	{ "SER_CTRL_2",	TAS2552_SER_CTRL_2, 1 },
+	{ "OUTPUT_DATA", TAS2552_OUTPUT_DATA, 1 },
+	{ "PLL_CTRL_1",	TAS2552_PLL_CTRL_1, 1 },
+	{ "PLL_CTRL_2",	TAS2552_PLL_CTRL_2, 1 },
+	{ "PLL_CTRL_3",	TAS2552_PLL_CTRL_3, 1 },
+	{ "BTIP", TAS2552_BTIP, 1 },
+	{ "BTS_CTRL", TAS2552_BTS_CTRL, 1 },
+	{ "RESERVED_0D",	TAS2552_RESERVED_0D, 1 },
+	{ "LIMIT_RATE_HYS",	TAS2552_LIMIT_RATE_HYS, 1 },
+	{ "IMIT_RELEASE",	TAS2552_LIMIT_RELEASE, 1 },
+	{ "LIMIT_INT_COUNT", TAS2552_LIMIT_INT_COUNT, 1 },
+	{ "PDM_CFG",	TAS2552_PDM_CFG, 1 },
+	{ "PGA_GAIN",	TAS2552_PGA_GAIN, 1 },
+	{ "EDGE_CTRL",	TAS2552_EDGE_RATE_CTRL, 1 },
+	{ "BOOST_CTRL",	TAS2552_BOOST_PT_CTRL, 1 },
+	{ "VER_NUM", TAS2552_VER_NUM, 1 },
+	{ "VBAT_DATA", TAS2552_VBAT_DATA, 1 },
+};
+
+static int tas2552_i2c_read(struct tas2552_data *tas_data, int reg)
+{
+	int val;
+
+	if (WARN_ON(!tas_data->tas2552_client))
+		return -EINVAL;
+
+	val = i2c_smbus_read_byte_data(tas_data->tas2552_client, reg);
+	if (val < 0)
+		dev_err(&tas_data->tas2552_client->dev,
+				"Read failed %i\n", val);
+	return val;
+}
+
+static int tas2552_i2c_write(struct tas2552_data *tas_data, int reg, u8 value)
+{
+	int val = 0;
+
+	val = i2c_smbus_write_byte_data(tas_data->tas2552_client,
+									reg, value);
+	if (val < 0) {
+		dev_err(&tas_data->tas2552_client->dev,
+				"Write failed %i\n", val);
+	}
+
+	return val;
+}
+
+static ssize_t tas2552_registers_show(struct device *dev,
+			      struct device_attribute *attr, char *buf)
+{
+	unsigned i, n, reg_count;
+	u8 read_buf;
+	struct tas2552_data *data = dev_get_drvdata(dev);
+
+	reg_count = sizeof(tas2552_regs) / sizeof(tas2552_regs[0]);
+	for (i = 0, n = 0; i < reg_count; i++) {
+		read_buf = tas2552_i2c_read(data, tas2552_regs[i].reg);
+		n += scnprintf(buf + n, PAGE_SIZE - n,
+			       "%-20s = 0x%02X\n",
+			       tas2552_regs[i].name,
+			       read_buf);
+	}
+	return n;
+}
+
+static ssize_t tas2552_registers_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	unsigned i, reg_count, value;
+	int error = 0;
+	char name[30];
+	struct tas2552_data *data = dev_get_drvdata(dev);
+
+	if (count >= 30) {
+		pr_err("%s:input too long\n", __func__);
+		return -1;
+	}
+
+	if (sscanf(buf, "%s %x", name, &value) != 2) {
+		pr_err("%s:unable to parse input\n", __func__);
+		return -1;
+	}
+
+	reg_count = sizeof(tas2552_regs) / sizeof(tas2552_regs[0]);
+	for (i = 0; i < reg_count; i++) {
+		if (!strcmp(name, tas2552_regs[i].name)) {
+			if (tas2552_regs[i].writeable) {
+				error = tas2552_i2c_write(data, tas2552_regs[i].reg, value);
+				if (error) {
+					pr_err("%s:Failed to write %s\n",
+						__func__, name);
+					return -1;
+				}
+			} else {
+				pr_err("%s:Register %s is not writeable\n",
+						__func__, name);
+					return -1;
+			}
+			return count;
+		}
+	}
+	pr_err("%s:no such register %s\n", __func__, name);
+	return -1;
+}
+
+static DEVICE_ATTR(registers, S_IWUSR | S_IRUGO,
+		tas2552_registers_show, tas2552_registers_store);
+
+static struct attribute *tas2552_attrs[] = {
+	&dev_attr_registers.attr,
+	NULL
+};
+
+static const struct attribute_group tas2552_attr_group = {
+	.attrs = tas2552_attrs,
+};
+#endif
+
 static void tas2552_sw_shutdown(struct tas2552_data *tas_data, int sw_shutdown)
 {
 	u8 cfg1_reg;
@@ -524,6 +663,11 @@ static int tas2552_probe(struct i2c_client *client,
 
 	dev_set_drvdata(&client->dev, data);
 
+#ifdef TAS2552_DEBUG
+	ret = sysfs_create_group(&client->dev.kobj, &tas2552_attr_group);
+	if (ret < 0)
+		dev_err(&client->dev, "Failed to create sysfs: %d\n", ret);
+#endif
 	ret = snd_soc_register_codec(&client->dev,
 				      &soc_codec_dev_tas2552,
 				      tas2552_dai, ARRAY_SIZE(tas2552_dai));
@@ -535,6 +679,9 @@ static int tas2552_probe(struct i2c_client *client,
 
 static int tas2552_i2c_remove(struct i2c_client *client)
 {
+#ifdef TAS2552_DEBUG
+	sysfs_remove_group(&client->dev.kobj, &tas2552_attr_group);
+#endif
 	snd_soc_unregister_codec(&client->dev);
 	return 0;
 }
