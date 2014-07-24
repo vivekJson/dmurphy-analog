@@ -685,4 +685,15 @@ config INPUT_DRV260X_HAPTICS
 	  To compile this driver as a module, choose M here: the
 	  module will be called drv260x-haptics.
 
+config INPUT_AND_DRV260X_HAPTICS
+	tristate "TI DRV260X haptics support for Android"
+	depends on I2C
+	select ANDROID
+	select ANDROID_TIMED_OUTPUT
+	help
+	  Say Y to enable support for the TI DRV260X haptics driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called drv260x-haptics.
+
 endif

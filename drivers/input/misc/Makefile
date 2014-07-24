@@ -65,3 +65,4 @@ obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
 obj-$(CONFIG_INPUT_DRV260X_HAPTICS)	+= drv260x.o
+obj-$(CONFIG_INPUT_AND_DRV260X_HAPTICS)	+= android_drv260x.o
