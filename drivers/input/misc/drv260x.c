@@ -246,6 +246,130 @@ static struct reg_default drv260x_reg_defs[] = {
 	{ DRV260X_LRA_RES_PERIOD, 0x00},
 };
 
+/* Remove this line to disable debug */
+#define DRV260X_DEBUG
+
+#ifdef DRV260X_DEBUG
+/* The registers can be accessed via
+ * cat /sys/class/i2c-adapter/i2c-2/2-005a/registers
+ * And written through echo for example
+ * echo "CFG1 0x00" > /sys/class/i2c-adapter/i2c-2/2-005a/registers
+ */
+struct drv260x_reg {
+	const char *name;
+	uint8_t reg;
+	int writeable;
+} drv260x_regs[] = {
+	{ "STATUS", DRV260X_STATUS, 0 },
+	{ "MODE", DRV260X_MODE, 1 },
+	{ "REAL_PB", DRV260X_RT_PB_IN, 1},
+	{ "LIB_SELECT", DRV260X_LIB_SEL, 1},
+	{ "WAVE_SEQ_1", DRV260X_WV_SEQ_1, 1},
+	{ "WAVE_SEQ_2", DRV260X_WV_SEQ_2, 1},
+	{ "WAVE_SEQ_3", DRV260X_WV_SEQ_3, 1},
+	{ "WAVE_SEQ_4", DRV260X_WV_SEQ_4, 1},
+	{ "WAVE_SEQ_5", DRV260X_WV_SEQ_5, 1},
+	{ "WAVE_SEQ_6", DRV260X_WV_SEQ_6, 1},
+	{ "WAVE_SEQ_7", DRV260X_WV_SEQ_7, 1},
+	{ "WAVE_SEQ_8", DRV260X_WV_SEQ_8, 1},
+	{ "GO",	DRV260X_GO, 1},
+	{ "OD_OFF", DRV260X_OVERDRIVE_OFF, 1},
+	{ "SUSTAIN_P_OFF", DRV260X_SUSTAIN_P_OFF, 1},
+	{ "SUSTAIN_N_OFF", DRV260X_SUSTAIN_N_OFF, 1},
+	{ "BRAKE_OFF", DRV260X_BRAKE_OFF, 1},
+	{ "AV_CTRL", DRV260X_A_TO_V_CTRL, 1},
+	{ "AV_MIN_IN", DRV260X_A_TO_V_MIN_INPUT, 1},
+	{ "AV_MAX_IN", DRV260X_A_TO_V_MAX_INPUT, 1},
+	{ "AV_MIN_OUT",	DRV260X_A_TO_V_MIN_OUT, 1},
+	{ "AV_MAX_OUT",	DRV260X_A_TO_V_MAX_OUT, 1},
+	{ "RATED_VOLT",	DRV260X_RATED_VOLT, 1},
+	{ "OD_CLAMP", DRV260X_OD_CLAMP_VOLT, 1},
+	{ "CAL_COMP", DRV260X_CAL_COMP	, 1},
+	{ "CAL_EMF", DRV260X_CAL_BACK_EMF, 1},
+	{ "FB_CTRL", DRV260X_FEEDBACK_CTRL, 1},
+	{ "CTRL1", DRV260X_CTRL1, 1},
+	{ "CTRL2", DRV260X_CTRL2, 1},
+	{ "CTRL3", DRV260X_CTRL3, 1},
+	{ "CTRL4", DRV260X_CTRL4, 1},
+	{ "CTRL5", DRV260X_CTRL5, 1},
+	{ "LRA_LOOP", DRV260X_LRA_LOOP_PERIOD, 1},
+	{ "VBAT_MON", DRV260X_VBAT_MON, 1},
+	{ "LRA_RES", DRV260X_LRA_RES_PERIOD, 1},
+};
+
+static ssize_t drv260x_registers_show(struct device *dev,
+						struct device_attribute *attr,
+						char *buf)
+{
+	unsigned i, n, reg_count;
+	unsigned int read_buf;
+	struct drv260x_data *data = dev_get_drvdata(dev);
+
+	reg_count = sizeof(drv260x_regs) / sizeof(drv260x_regs[0]);
+	for (i = 0, n = 0; i < reg_count; i++) {
+		regmap_read(data->regmap, drv260x_regs[i].reg, &read_buf);
+		n += scnprintf(buf + n, PAGE_SIZE - n,
+			       "%-20s = 0x%02X\n",
+			       drv260x_regs[i].name,
+			       read_buf);
+	}
+	return n;
+}
+
+static ssize_t drv260x_registers_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	unsigned i, reg_count, value;
+	int error = 0;
+	char name[30];
+	struct drv260x_data *data = dev_get_drvdata(dev);
+
+	if (count >= 30) {
+		pr_err("%s:input too long\n", __func__);
+		return -1;
+	}
+
+	if (sscanf(buf, "%s %x", name, &value) != 2) {
+		pr_err("%s:unable to parse input\n", __func__);
+		return -1;
+	}
+
+	reg_count = sizeof(drv260x_regs) / sizeof(drv260x_regs[0]);
+	for (i = 0; i < reg_count; i++) {
+		if (!strcmp(name, drv260x_regs[i].name)) {
+			if (drv260x_regs[i].writeable) {
+				error = regmap_write(data->regmap, drv260x_regs[i].reg, value);
+				if (error) {
+					pr_err("%s:Failed to write %s\n",
+						__func__, name);
+					return -1;
+				}
+			} else {
+				pr_err("%s:Register %s is not writeable\n",
+						__func__, name);
+					return -1;
+			}
+			return count;
+		}
+	}
+	pr_err("%s:no such register %s\n", __func__, name);
+	return -1;
+}
+
+static DEVICE_ATTR(registers, S_IWUSR | S_IRUGO,
+		drv260x_registers_show, drv260x_registers_store);
+
+static struct attribute *drv260x_attrs[] = {
+	&dev_attr_registers.attr,
+	NULL
+};
+
+static const struct attribute_group drv260x_attr_group = {
+	.attrs = drv260x_attrs,
+};
+#endif
+
 /**
  * Rated and Overdriver Voltages:
  * Calculated using the formula r = v * 255 / 5.6
@@ -591,6 +715,12 @@ static int drv260x_probe(struct i2c_client *client,
 		dev_err(&client->dev, "Device init failed: %d\n", ret);
 		return ret;
 	}
+
+#ifdef DRV260X_DEBUG
+	ret = sysfs_create_group(&client->dev.kobj, &drv260x_attr_group);
+	if (ret < 0)
+		dev_err(&client->dev, "Failed to create sysfs: %d\n", ret);
+#endif
 
 	ret = input_register_device(haptics->input_dev);
 	if (ret < 0) {
