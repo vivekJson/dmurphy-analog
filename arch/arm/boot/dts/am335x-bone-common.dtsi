@@ -168,6 +168,69 @@
 			0x1c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad7.mmc1_dat7 */
 		>;
 	};
+
+	spi1_pins: pinmux_spi1_pins {
+		pinctrl-single,pins = <
+/* SPI1 */
+/* D1 Output and D0 Input */
+#if 0
+			0x190 0x33      /* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+			0x194 0x33      /* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+			0x198 0x13      /* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+			0x19c 0x13      /* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+#endif
+/* SPI1 */
+/* D0 Output and D1 Input */
+			0x190 (PIN_INPUT_PULLUP | MUX_MODE3) /* mcasp0_aclkx.spi1_clk */
+			0x194 (PIN_INPUT_PULLUP | MUX_MODE3) /* mcasp0_fsx.spi1_d0 */
+			0x198 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* mcasp0_axr0.spi1_d1 */
+			0x19c (PIN_OUTPUT | MUX_MODE3) /* mcasp0_ahclkr.spi1_cs0 */
+
+			0x78 0x17 /* gpio1_28 OUTPUT_PULLUP | MODE7 */
+			0x40 (PIN_INPUT_PULLUP | MUX_MODE7) 	/* gpio1_16  INPUT_PULLUP | MODE7 */
+		>;
+	};
+
+	spi0_pins: pinmux_spi0_pins {
+		pinctrl-single,pins = <
+			0x150 (PIN_INPUT_PULLUP | MUX_MODE3)  /* spi0_sclk, INPUT_PULLUP | MODE0 */
+			0x154 (PIN_INPUT_PULLUP | MUX_MODE3)  /* spi0_d0, INPUT_PULLUP | MODE0 */
+			0x158 (PIN_OUTPUT_PULLUP | MUX_MODE3)  /* spi0_d1, OUTPUT_PULLUP | MODE0 */
+			0x15c (PIN_OUTPUT | MUX_MODE3)   /* spi0_cs0, OUTPUT_PULLUP | MODE0 */
+			0x78 0x17 /* gpio1_28 OUTPUT_PULLUP | MODE7 */
+			0x40 (PIN_INPUT_PULLUP | MUX_MODE7)	/* gpio1_16  OUTPUT_PULLUP | MODE7 */
+		>;
+	};
+
+};
+/*
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins>;
+	status = "okay";
+
+	heart_rate@0 {
+		compatible = "ti,afe4403";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		spi-gpio = <&gpio1 28 GPIO_ACTIVE_HIGH>;
+		data-ready-gpio = <&gpio1 16 GPIO_ACTIVE_HIGH>;
+	};
+};
+*/
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+	status = "okay";
+
+	heart_rate@0 {
+		compatible = "ti,afe4403";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		ste-gpio = <&gpio1 28 GPIO_ACTIVE_HIGH>;
+		data-ready-gpio = <&gpio1 16 GPIO_ACTIVE_LOW>;
+		reset-gpio = <&gpio1 17 GPIO_ACTIVE_LOW>;
+	};
 };
 
 &uart0 {
