@@ -212,6 +212,178 @@ out:
 	return ret;
 }
 
+/* Remove this line to disable debug */
+#define LP8860_DEBUG
+
+#ifdef LP8860_DEBUG
+/* The registers can be accessed via
+ * cat /sys/class/i2c-adapter/i2c-2/2-002d/registers
+ * And written through echo for example
+ * echo "CONFIG 0x00" > /sys/class/i2c-adapter/i2c-2/2-002d/registers
+ */
+struct lp8860_reg {
+	const char *name;
+	uint8_t reg;
+	int writeable;
+} lp8860_regs[] = {
+	{ "CL1_BRT_MSB", LP8860_DISP_CL1_BRT_MSB, 1 },
+	{ "CL1_BRT_LSB", LP8860_DISP_CL1_BRT_LSB, 1 },
+	{ "CL1_CURR_MSB", LP8860_DISP_CL1_CURR_MSB, 1},
+	{ "CL1_CURR_LSB", LP8860_DISP_CL1_CURR_LSB, 1},
+	{ "CL2_BRT_MSB", LP8860_CL2_BRT_MSB, 1},
+	{ "CL2_BRT_LSB", LP8860_CL2_BRT_LSB, 1},
+	{ "CL2_CURRENT", LP8860_CL2_CURRENT, 1},
+	{ "CL3_BRT_MSB", LP8860_CL3_BRT_MSB, 1},
+	{ "CL3_BRT_LSB", LP8860_CL3_BRT_LSB, 1},
+	{ "CL3_CURRENT", LP8860_CL3_CURRENT, 1},
+	{ "CL4_BRT_MSB",  LP8860_CL4_BRT_MSB, 1},
+	{ "CL4_BRT_LSB", LP8860_CL4_BRT_LSB, 1},
+	{ "CL4_CURRENT", LP8860_CL4_CURRENT, 1},
+	{ "CONFIG", LP8860_CONFIG, 1},
+	{ "FAULT_CLEAR", LP8860_FAULT_CLEAR, 1},
+	{ "EEPROM_CONTROL", LP8860_EEPROM_CNTRL, 1},
+	{ "EEPROM_UNLOCK", LP8860_EEPROM_UNLOCK, 1},
+	{ "STATUS", LP8860_STATUS, 0},
+	{ "LED_FAULT", LP8860_LED_FAULT, 0},
+	{ "FAULT", LP8860_FAULT, 0},
+	{ "ID", LP8860_ID, 0},
+	{ "EEPROM_REG_0", LP8860_EEPROM_REG_0, 1},
+	{ "EEPROM_REG_1", LP8860_EEPROM_REG_1, 1},
+	{ "EEPROM_REG_2", LP8860_EEPROM_REG_2, 1},
+	{ "EEPROM_REG_3", LP8860_EEPROM_REG_3, 1},
+	{ "EEPROM_REG_4", LP8860_EEPROM_REG_4, 1},
+	{ "EEPROM_REG_5", LP8860_EEPROM_REG_5, 1},
+	{ "EEPROM_REG_6", LP8860_EEPROM_REG_6, 1},
+	{ "EEPROM_REG_7", LP8860_EEPROM_REG_7, 1},
+	{ "EEPROM_REG_8", LP8860_EEPROM_REG_8, 1},
+	{ "EEPROM_REG_9", LP8860_EEPROM_REG_9, 1},
+	{ "EEPROM_REG_10", LP8860_EEPROM_REG_10, 1},
+	{ "EEPROM_REG_11", LP8860_EEPROM_REG_11, 1},
+	{ "EEPROM_REG_12", LP8860_EEPROM_REG_12, 1},
+	{ "EEPROM_REG_13", LP8860_EEPROM_REG_13, 1},
+	{ "EEPROM_REG_14", LP8860_EEPROM_REG_14, 1},
+	{ "EEPROM_REG_15", LP8860_EEPROM_REG_15, 1},
+	{ "EEPROM_REG_16", LP8860_EEPROM_REG_16, 1},
+	{ "EEPROM_REG_17", LP8860_EEPROM_REG_17, 1},
+	{ "EEPROM_REG_18", LP8860_EEPROM_REG_18, 1},
+	{ "EEPROM_REG_19", LP8860_EEPROM_REG_19, 1},
+	{ "EEPROM_REG_20", LP8860_EEPROM_REG_20, 1},
+	{ "EEPROM_REG_21", LP8860_EEPROM_REG_21, 1},
+	{ "EEPROM_REG_22", LP8860_EEPROM_REG_22, 1},
+	{ "EEPROM_REG_23", LP8860_EEPROM_REG_23, 1},
+	{ "EEPROM_REG_24", LP8860_EEPROM_REG_24, 1},
+};
+
+static ssize_t lp8860_registers_show(struct device *dev,
+						struct device_attribute *attr,
+						char *buf)
+{
+	struct lp8860_led *data = dev_get_drvdata(dev);
+	unsigned i, n, reg_count;
+	unsigned int read_buf;
+	int error;
+
+	reg_count = sizeof(lp8860_regs) / sizeof(lp8860_regs[0]);
+	for (i = 0, n = 0; i < reg_count; i++) {
+		if (lp8860_regs[i].reg >= LP8860_EEPROM_REG_0) {
+			error = lp8860_unlock_eeprom(data, LP8860_UNLOCK_EEPROM);
+			if (error)
+				goto out;
+			regmap_read(data->eeprom_regmap, lp8860_regs[i].reg, &read_buf);
+			error = lp8860_unlock_eeprom(data, LP8860_LOCK_EEPROM);
+			if (error)
+				goto out;
+
+		} else {
+			regmap_read(data->regmap, lp8860_regs[i].reg, &read_buf);
+		}
+
+		n += scnprintf(buf + n, PAGE_SIZE - n,
+			       "%-20s = 0x%02X\n",
+			       lp8860_regs[i].name,
+			       read_buf);
+	}
+out:
+	return n;
+}
+
+static ssize_t lp8860_registers_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	unsigned i, reg_count, value;
+	int error = 0;
+	char name[30];
+	struct lp8860_led *data = dev_get_drvdata(dev);
+
+	if (count >= 30) {
+		pr_err("%s:input too long\n", __func__);
+		return -1;
+	}
+
+	if (sscanf(buf, "%s %x", name, &value) != 2) {
+		pr_err("%s:unable to parse input\n", __func__);
+		return -1;
+	}
+
+
+	reg_count = sizeof(lp8860_regs) / sizeof(lp8860_regs[0]);
+	for (i = 0; i < reg_count; i++) {
+		if (!strcmp(name, lp8860_regs[i].name)) {
+			if (lp8860_regs[i].writeable) {
+				printk("%s: writing reg 0x%X with 0x%X\n", __func__, lp8860_regs[i].reg, value);
+				if (lp8860_regs[i].reg >= LP8860_EEPROM_REG_0) {
+					error = lp8860_unlock_eeprom(data, LP8860_UNLOCK_EEPROM);
+					if (error) {
+						printk("WHAAT\n");
+						goto out;
+					}
+					error = regmap_write(data->eeprom_regmap, lp8860_regs[i].reg, value);
+					if (error) {
+						pr_err("%s:Failed to write %s\n",
+							__func__, name);
+						goto out;
+					}
+
+					lp8860_unlock_eeprom(data, LP8860_LOCK_EEPROM);
+				} else {
+					error = regmap_write(data->regmap, lp8860_regs[i].reg, value);
+					if (error) {
+						pr_err("%s:Failed to write %s\n",
+							__func__, name);
+						goto out;
+					}
+				}
+			} else {
+				pr_err("%s:Register %s is not writeable\n",
+						__func__, name);
+					return -1;
+			}
+			return count;
+		}
+	}
+
+	pr_err("%s:no such register %s\n", __func__, name);
+out:
+	if (lp8860_regs[i].reg == LP8860_EEPROM_REG_0)
+		lp8860_unlock_eeprom(data, LP8860_LOCK_EEPROM);
+	
+	return -1;
+}
+
+static DEVICE_ATTR(registers, S_IWUSR | S_IRUGO,
+		lp8860_registers_show, lp8860_registers_store);
+
+static struct attribute *lp8860_attrs[] = {
+	&dev_attr_registers.attr,
+	NULL
+};
+
+static const struct attribute_group lp8860_attr_group = {
+	.attrs = lp8860_attrs,
+};
+#endif
+
 static void lp8860_led_brightness_work(struct work_struct *work)
 {
 	struct lp8860_led *led = container_of(work, struct lp8860_led, work);
@@ -436,6 +608,12 @@ static int lp8860_probe(struct i2c_client *client,
 		dev_err(&client->dev, "led register err: %d\n", ret);
 		return ret;
 	}
+
+#ifdef LP8860_DEBUG
+	ret = sysfs_create_group(&client->dev.kobj, &lp8860_attr_group);
+	if (ret < 0)
+		dev_err(&client->dev, "Failed to create sysfs: %d\n", ret);
+#endif
 
 	return 0;
 }
