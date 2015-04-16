@@ -1,0 +1,23 @@
+* Texas Instruments - AFE4404 Heart rate and Pulse Oximeter
+
+The device consists of a low-noise receiver channel
+with an integrated analog-to-digital converter (ADC),
+an LED transmit section, and diagnostics for sensor and LED fault detection.
+
+Required properties:
+  - compatible: Must contain "ti,afe4404".
+  - reg - I2C address of the device
+  - data-ready-gpio: GPIO interrupt when the afe4404 has data
+  - led-supply: Chip supply to the device
+
+Optional properties:
+  - reset-gpio: GPIO used to reset the device via HW
+
+Example:
+
+&heart_rate {
+	compatible = "ti,afe4404";
+	reg = <0x58>;
+	data-ready-gpio = <&gpio1 28 GPIO_ACTIVE_HIGH>;
+	led-supply = <&vbat>;
+};
