@@ -274,6 +274,160 @@ out:
 	return ret;
 };
 
+/* Remove this line to disable debug */
+#define AFE4404_DEBUG
+
+#ifdef AFE4404_DEBUG
+/* The registers can be accessed via
+ * cat /sys/class/i2c
+ * And written through echo for example
+ * echo "CONTROL0 0x00" > /sys/class/
+ */
+struct afe4404_dbg_reg {
+	const char *name;
+	unsigned char reg;
+	int writeable;
+	int readable;
+} afe4404_dbg_regs[] = {
+	{ "CONTROL0", AFE4404_CONTROL0, 1, 0},
+	{ "LED2STC", AFE4404_LED2STC, 1, 1 },
+	{ "LED2ENDC", AFE4404_LED2ENDC, 1, 1 },
+	{ "LED2LEDSTC", AFE4404_LED2LEDSTC, 1, 1 },
+	{ "LED2LEDENDC", AFE4404_LED2LEDENDC, 1, 1 },
+	{ "ALED2STC", AFE4404_ALED2STC, 1, 1 },
+	{ "ALED2ENDC", AFE4404_ALED2ENDC, 1, 1 },
+	{ "LED1STC", AFE4404_LED1STC, 1, 1 },
+	{ "LED1ENDC", AFE4404_LED1ENDC, 1, 1 },
+	{ "LED1LEDSTC", AFE4404_LED1LEDSTC, 1, 1 },
+	{ "LED1LEDENDC", AFE4404_LED1LEDENDC, 1, 1 },
+	{ "ALED1STC", AFE4404_ALED1STC, 1, 1 },
+	{ "ALED1ENDC", AFE4404_ALED1ENDC, 1, 1 },
+	{ "LED2CONVST", AFE4404_LED2CONVST, 1, 1 },
+	{ "LED2CONVEND", AFE4404_LED2CONVEND, 1, 1 },
+	{ "ALED2CONVST", AFE4404_ALED2CONVST, 1, 1 },
+	{ "ALED2CONVEND", AFE4404_ALED2CONVEND, 1, 1 },
+	{ "LED1CONVST", AFE4404_LED1CONVST, 1, 1 },
+	{ "LED1CONVEND", AFE4404_LED1CONVEND, 1, 1 },
+	{ "ALED1CONVST", AFE4404_ALED1CONVST, 1, 1 },
+	{ "ALED1CONVEND", AFE4404_ALED1CONVEND, 1, 1 },
+	{ "ADCRSTSTCT0", AFE4404_ADCRSTSTCT0, 1, 1 },
+	{ "ADCRSTENDCT0", AFE4404_ADCRSTENDCT0, 1, 1 },
+	{ "ADCRSTSTCT1", AFE4404_ADCRSTSTCT1, 1, 1 },
+	{ "ADCRSTENDCT1", AFE4404_ADCRSTENDCT1, 1, 1 },
+	{ "ADCRSTSTCT2", AFE4404_ADCRSTSTCT2, 1, 1 },
+	{ "ADCRSTENDCT2", AFE4404_ADCRSTENDCT2, 1, 1 },
+	{ "ADCRSTSTCT3", AFE4404_ADCRSTSTCT3, 1, 1 },
+	{ "ADCRSTENDCT3", AFE4404_ADCRSTENDCT3, 1, 1 },
+	{ "PRPCOUNT", AFE4404_PRPCOUNT, 1, 1 },
+	{ "CONTROL1", AFE4404_CONTROL1, 1, 1 },
+	{ "SPARE1", AFE4404_SPARE1, 1, 1 },
+	{ "SPARE2", AFE4404_SPARE2, 1, 1 },
+	{ "SPARE3", AFE4404_SPARE3, 1, 1},
+	{ "SPARE4", AFE4404_SPARE4, 1, 1 },
+	{ "TIAGAIN", AFE4404_TIAGAIN, 1, 1 },
+	{ "TIA_AMB_GAIN", AFE4404_TIA_AMB_GAIN, 1, 1 },
+	{ "LEDCNTRL", AFE4404_LEDCNTRL, 1, 1 },
+	{ "CONTROL2", AFE4404_CONTROL2, 1, 1 },
+	{ "CONTROL3", AFE4404_CONTROL3, 1, 1 },
+	{ "PDNCYCLESTC", AFE4404_PDNCYCLESTC, 1, 1 },
+	{ "PDNCYCLEENDC", AFE4404_PDNCYCLEENDC, 1, 1 },
+	{ "ALARM", AFE4404_ALARM, 0, 1 },
+	{ "LED2VAL", AFE4404_LED2VAL, 0, 1 },
+	{ "ALED2VAL", AFE4404_ALED2VAL, 0, 1 },
+	{ "LED1VAL", AFE4404_LED1VAL, 0, 1 },
+	{ "ALEDV1AL", AFE4404_ALED1VAL, 0, 1 },
+	{ "LED2_ALED2VAL", AFE4404_LED2_ALED2VAL, 0, 1 },
+	{ "LED1_ALED1VAL", AFE4404_LED1_ALED1VAL, 0, 1 },
+	{ "DIAG", AFE4404_DIAG, 0, 1 },
+	{ "LED3LEDSTC", AFE4404_LED3LEDSTC, 1, 1 },
+	{ "LED3LEDENDC", AFE4404_LED3LEDENDC, 1, 1 },
+	{ "CLKDIV", AFE4404_CLKDIV_PRF, 1, 1 },
+};
+
+static ssize_t afe4404_registers_show(struct device *dev,
+						struct device_attribute *attr,
+						char *buf)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct afe4404_data *data = iio_priv(indio_dev);
+	unsigned i = 0, n, reg_count;
+	unsigned int read_buf, ret;
+
+	reg_count = sizeof(afe4404_dbg_regs) / sizeof(afe4404_dbg_regs[0]);
+	for (i = 0, n = 0; i < reg_count; i++) {
+		if (afe4404_dbg_regs[i].readable) {
+			ret = afe4404_read(data, afe4404_dbg_regs[i].reg, &read_buf);
+			if (ret)
+				return ret;
+			n += scnprintf(buf + n, PAGE_SIZE - n,
+					   "%-20s = 0x%X\n",
+					   afe4404_dbg_regs[i].name,
+					   read_buf);
+		} else {
+				printk("%s:Register %s is write only\n",
+						__func__, afe4404_dbg_regs[i].name);
+		}
+	}
+
+	return n;
+}
+
+static ssize_t afe4404_registers_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct afe4404_data *data = iio_priv(indio_dev);
+	unsigned i, reg_count, value;
+	int error = 0;
+	char name[30];
+
+	if (count >= 30) {
+		pr_err("%s:input too long\n", __func__);
+		return -1;
+	}
+
+	if (sscanf(buf, "%s %x", name, &value) != 2) {
+		pr_err("%s:unable to parse input\n", __func__);
+		return -1;
+	}
+
+	reg_count = sizeof(afe4404_dbg_regs) / sizeof(afe4404_dbg_regs[0]);
+	for (i = 0; i < reg_count; i++) {
+		if (!strcmp(name, afe4404_dbg_regs[i].name)) {
+			if (afe4404_dbg_regs[i].writeable) {
+				error = afe4404_write(data, afe4404_dbg_regs[i].reg, value);
+				if (error) {
+					printk("%s:Failed to write %s\n",
+						__func__, name);
+					return -1;
+				}
+			} else {
+				printk("%s:Register %s is read only\n",
+						__func__, afe4404_dbg_regs[i].name);
+					return -1;
+			}
+
+			return count;
+		}
+	}
+	printk("%s:no such register %s\n", __func__, name);
+	return -1;
+}
+
+static DEVICE_ATTR(registers, S_IWUSR | S_IRUGO,
+		afe4404_registers_show, afe4404_registers_store);
+
+static struct attribute *afe4404_attrs[] = {
+	&dev_attr_registers.attr,
+	NULL
+};
+
+static const struct attribute_group afe4404_attr_group = {
+	.attrs = afe4404_attrs,
+};
+#endif
+
 static int afe4404_write_raw(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan,
 			     int val, int val2, long mask)
@@ -647,6 +801,12 @@ static int afe4404_probe(struct i2c_client *client,
 		goto err_init_failed;
 	}
 
+#ifdef AFE4404_DEBUG
+	ret = sysfs_create_group(&client->dev.kobj, &afe4404_attr_group);
+	if (ret < 0)
+		dev_err(&client->dev, "Failed to create sysfs: %d\n", ret);
+#endif
+
 	return 0;
 
 err_init_failed:
@@ -658,6 +818,10 @@ static int afe4404_remove(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(client);
 	struct afe4404_data *data = iio_priv(indio_dev);
+
+#ifdef AFE4404_DEBUG
+	sysfs_remove_group(&client->dev.kobj, &afe4404_attr_group);
+#endif
 
 	iio_device_unregister(indio_dev);
 
