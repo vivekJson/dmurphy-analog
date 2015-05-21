@@ -65,7 +65,7 @@
 		>;
 	};
 };
-
+/*
 &lcdc {
 	status = "okay";
 };
@@ -80,7 +80,7 @@
 		status = "okay";
 	};
 };
-
+*/
 &rtc {
 	system-power-controller;
 };
