@@ -82,7 +82,7 @@
 	"bootdir=/boot\0" \
 	"bootfile=zImage\0" \
 	"fdtfile=undefined\0" \
-	"console=ttyO0,115200n8\0" \
+	"console=ttyO3,115200n8\0" \
 	"partitions=" \
 		"uuid_disk=${uuid_gpt_disk};" \
 		"name=rootfs,start=2MiB,size=-,uuid=${uuid_gpt_rootfs}\0" \
@@ -179,7 +179,7 @@
 		"if test $board_name = A335X_SK; then " \
 			"setenv fdtfile am335x-evmsk.dtb; fi; " \
 		"if test $fdtfile = undefined; then " \
-			"echo WARNING: Could not determine device tree to use; fi; \0" \
+			"setenv fdtfile am335x-boneblack.dtb; fi; " \
 	NANDARGS \
 	DFUARGS
 #endif
@@ -212,6 +212,16 @@
 #define CONFIG_POWER_TPS65910
 
 /* SPL */
+#undef CONFIG_NOR_BOOT
+#undef CONFIG_NAND_BOOT
+
+#undef CONFIG_ENV_IS_NOWHERE
+#define CONFIG_SYS_MMC_ENV_DEV		1
+#define CONFIG_SYS_MMC_ENV_PART		2
+#define CONFIG_ENV_OFFSET		0x0
+#define CONFIG_ENV_OFFSET_REDUND	(CONFIG_ENV_OFFSET + CONFIG_ENV_SIZE)
+#define CONFIG_SYS_REDUNDAND_ENVIRONMENT
+
 #ifndef CONFIG_NOR_BOOT
 #define CONFIG_SPL_POWER_SUPPORT
 #define CONFIG_SPL_YMODEM_SUPPORT
@@ -220,14 +230,14 @@
 #define CONFIG_BOOTCOUNT_LIMIT
 #define CONFIG_BOOTCOUNT_AM33XX
 
-/* USB gadget RNDIS */
-#define CONFIG_SPL_MUSB_NEW_SUPPORT
+/* USB gadget RNDIS 
+#define CONFIG_SPL_MUSB_NEW_SUPPORT*/
 
-/* General network SPL, both CPSW and USB gadget RNDIS */
+/* General network SPL, both CPSW and USB gadget RNDIS 
 #define CONFIG_SPL_NET_SUPPORT
 #define CONFIG_SPL_ENV_SUPPORT
 #define CONFIG_SPL_NET_VCI_STRING	"AM335x U-Boot SPL"
-
+*/
 #define CONFIG_SPL_LDSCRIPT		"$(CPUDIR)/am33xx/u-boot-spl.lds"
 
 #ifdef CONFIG_NAND
@@ -276,7 +286,7 @@
  * board schematic and physical port wired to each.  Then for host we
  * add mass storage support and for gadget we add both RNDIS ethernet
  * and DFU.
- */
+ *
 #define CONFIG_USB_MUSB_DSPS
 #define CONFIG_ARCH_MISC_INIT
 #define CONFIG_MUSB_GADGET
@@ -296,7 +306,7 @@
 #define CONFIG_CMD_USB
 #define CONFIG_USB_STORAGE
 #endif
-
+*/
 #ifdef CONFIG_MUSB_GADGET
 #define CONFIG_USB_ETHER
 #define CONFIG_USB_ETH_RNDIS
@@ -314,17 +324,18 @@
 /* disable EFI partitions and partition UUID support */
 #undef CONFIG_PARTITION_UUIDS
 #undef CONFIG_EFI_PARTITION
+
 /*
  * Disable CPSW SPL support so we fit within the 101KiB limit.
  */
 #undef CONFIG_SPL_ETH_SUPPORT
 #endif
-
+#undef CONFIG_CMD_DFU
 /* USB Device Firmware Update support */
 #ifndef CONFIG_SPL_BUILD
 #define CONFIG_DFU_FUNCTION
 #define CONFIG_DFU_MMC
-#define CONFIG_CMD_DFU
+/*#define CONFIG_CMD_DFU*/
 #define DFU_ALT_INFO_MMC \
 	"dfu_alt_info_mmc=" \
 	"boot part 0 1;" \

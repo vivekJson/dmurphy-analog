@@ -40,8 +40,10 @@ static struct module_pin_mux uart2_pin_mux[] = {
 };
 
 static struct module_pin_mux uart3_pin_mux[] = {
-	{OFFSET(spi0_cs1), (MODE(1) | PULLUP_EN | RXACTIVE)},	/* UART3_RXD */
-	{OFFSET(ecap0_in_pwm0_out), (MODE(1) | PULLUDEN)},	/* UART3_TXD */
+/*	{OFFSET(spi0_cs1), (MODE(1) | PULLUP_EN | RXACTIVE | 0x03)},	 UART3_RXD */
+/*	{OFFSET(ecap0_in_pwm0_out), (MODE(1) | PULLUDEN |0x03)},	 UART3_TXD */
+	{OFFSET(mmc0_dat0),  (MODE(1) | PULLUDEN |0x03)},
+	{OFFSET(mmc0_dat1),  (MODE(1) | PULLUP_EN | RXACTIVE | 0x03)},
 	{-1},
 };
 
@@ -330,6 +332,11 @@ static unsigned short detect_daughter_board_profile(void)
 
 void enable_board_pin_mux(struct am335x_baseboard_id *header)
 {
+	configure_module_pin_mux(mii1_pin_mux);
+	configure_module_pin_mux(uart3_pin_mux);
+	configure_module_pin_mux(mmc1_pin_mux);
+	return;
+
 	/* Do board-specific muxes. */
 	if (board_is_bone(header)) {
 		/* Beaglebone pinmux */
@@ -366,6 +373,7 @@ void enable_board_pin_mux(struct am335x_baseboard_id *header)
 		 */
 		configure_module_pin_mux(mii1_pin_mux);
 		configure_module_pin_mux(mmc0_no_cd_pin_mux);
+
 	} else if (board_is_evm_sk(header)) {
 		/* Starter Kit EVM */
 		configure_module_pin_mux(i2c1_pin_mux);

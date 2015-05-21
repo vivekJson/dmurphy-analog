@@ -21,25 +21,25 @@
 
 #include <asm/arch/omap.h>
 
+
+#undef CONFIG_NAND
+#undef CONFIG_NOR
+
+#undef CONFIG_DRIVER_TI_CPSW
+#undef CONFIG_USB_ETHER
+#undef CONFIG_MUSB_GADGET
+
+#ifndef CONFIG_SYS_NAND_BASE
+#define CONFIG_SYS_NAND_BASE		0x8000000
+#endif
+
+#define CONFIG_ENV_IS_NOWHERE
+
 /* NS16550 Configuration */
 #define CONFIG_SYS_NS16550
 #define CONFIG_SYS_NS16550_SERIAL
 #define CONFIG_SYS_NS16550_REG_SIZE	(-4)
 #define CONFIG_SYS_NS16550_CLK		48000000
-
-/* Network defines. */
-#define CONFIG_CMD_NET			/* 'bootp' and 'tftp' */
-#define CONFIG_CMD_DHCP
-#define CONFIG_CMD_MII
-#define CONFIG_BOOTP_DNS		/* Configurable parts of CMD_DHCP */
-#define CONFIG_BOOTP_DNS2
-#define CONFIG_BOOTP_SEND_HOSTNAME
-#define CONFIG_BOOTP_GATEWAY
-#define CONFIG_BOOTP_SUBNETMASK
-#define CONFIG_NET_RETRY_COUNT         10
-#define CONFIG_CMD_PING
-#define CONFIG_DRIVER_TI_CPSW		/* Driver for IP block */
-#define CONFIG_MII			/* Required in net/eth.c */
 
 /*
  * RTC related defines. To use bootcount you must set bootlimit in the
@@ -48,9 +48,9 @@
  */
 #define CONFIG_SYS_BOOTCOUNT_ADDR	0x44E3E000
 
-/* Enable the HW watchdog, since we can use this with bootcount */
+/* Enable the HW watchdog, since we can use this with bootcount 
 #define CONFIG_HW_WATCHDOG
-#define CONFIG_OMAP_WATCHDOG
+#define CONFIG_OMAP_WATCHDOG*/
 
 /*
  * SPL related defines.  The Public RAM memory map the ROM defines the

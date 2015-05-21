@@ -38,18 +38,21 @@ DECLARE_GLOBAL_DATA_PTR;
 /* GPIO that controls power to DDR on EVM-SK */
 #define GPIO_DDR_VTT_EN		7
 
-static struct ctrl_dev *cdev = (struct ctrl_dev *)CTRL_DEVICE_BASE;
+static __maybe_unused struct ctrl_dev *cdev = (struct ctrl_dev *)CTRL_DEVICE_BASE;
 
 /*
  * Read header information from EEPROM into global structure.
  */
 static int read_eeprom(struct am335x_baseboard_id *header)
 {
+
+	return 0;
+
 	/* Check if baseboard eeprom is available */
 	if (i2c_probe(CONFIG_SYS_I2C_EEPROM_ADDR)) {
 		puts("Could not probe the EEPROM; something fundamentally "
 			"wrong on the I2C bus.\n");
-		return -ENODEV;
+			return -ENODEV;
 	}
 
 	/* read the eeprom using i2c */
@@ -200,6 +203,7 @@ int spl_start_uboot(void)
 		return 1;
 
 #ifdef CONFIG_SPL_ENV_SUPPORT
+puts("SPL START place\n");
 	env_init();
 	env_relocate_spec();
 	if (getenv_yesno("boot_os") != 1)
@@ -364,10 +368,11 @@ void am33xx_spl_board_init(void)
 
 const struct dpll_params *get_dpll_ddr_params(void)
 {
-	struct am335x_baseboard_id header;
+	__maybe_unused struct am335x_baseboard_id header;
 
 	enable_i2c0_pin_mux();
 	i2c_init(CONFIG_SYS_OMAP24_I2C_SPEED, CONFIG_SYS_OMAP24_I2C_SLAVE);
+/*
 	if (read_eeprom(&header) < 0)
 		puts("Could not get board ID.\n");
 
@@ -377,12 +382,15 @@ const struct dpll_params *get_dpll_ddr_params(void)
 		return &dpll_ddr_bone_black;
 	else if (board_is_evm_15_or_later(&header))
 		return &dpll_ddr_evm_sk;
-	else
+	else*/
 		return &dpll_ddr;
 }
 
 void set_uart_mux_conf(void)
 {
+	enable_uart2_pin_mux();
+	enable_uart3_pin_mux();
+
 #ifdef CONFIG_SERIAL1
 	enable_uart0_pin_mux();
 #endif /* CONFIG_SERIAL1 */
@@ -449,6 +457,11 @@ void sdram_init(void)
 {
 	__maybe_unused struct am335x_baseboard_id header;
 
+	config_ddr(303, &ioregs_evm15, &ddr3_evm_data,
+		   &ddr3_evm_cmd_ctrl_data, &ddr3_evm_emif_reg_data, 0);
+
+	return;
+
 	if (read_eeprom(&header) < 0)
 		puts("Could not get board ID.\n");
 
@@ -486,10 +499,9 @@ int board_init(void)
 #if defined(CONFIG_HW_WATCHDOG)
 	hw_watchdog_init();
 #endif
-
 	gd->bd->bi_boot_params = CONFIG_SYS_SDRAM_BASE + 0x100;
 #if defined(CONFIG_NOR) || defined(CONFIG_NAND)
-	gpmc_init();
+/*	gpmc_init();*/
 #endif
 	return 0;
 }
@@ -498,20 +510,22 @@ int board_init(void)
 int board_late_init(void)
 {
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
-	char safe_string[HDR_NAME_LEN + 1];
-	struct am335x_baseboard_id header;
+	__maybe_unused char safe_string[HDR_NAME_LEN + 1];
+	__maybe_unused struct am335x_baseboard_id header;
 
 	if (read_eeprom(&header) < 0)
 		puts("Could not get board ID.\n");
 
-	/* Now set variables based on the header. */
+	/* Now set variables based on the header. 
 	strncpy(safe_string, (char *)header.name, sizeof(header.name));
 	safe_string[sizeof(header.name)] = 0;
-	setenv("board_name", safe_string);
-
+	setenv("board_name", safe_string);*/
+	setenv("board_name", "A335BNLT");
+/*
 	strncpy(safe_string, (char *)header.version, sizeof(header.version));
 	safe_string[sizeof(header.version)] = 0;
-	setenv("board_rev", safe_string);
+	setenv("board_rev", safe_string);*/
+	setenv("board_rev", "1.0");
 #endif
 
 	return 0;

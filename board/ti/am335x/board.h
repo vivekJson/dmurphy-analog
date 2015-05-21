@@ -31,31 +31,37 @@ struct am335x_baseboard_id {
 
 static inline int board_is_bone(struct am335x_baseboard_id *header)
 {
+	return 0;
 	return !strncmp(header->name, "A335BONE", HDR_NAME_LEN);
 }
 
 static inline int board_is_bone_lt(struct am335x_baseboard_id *header)
 {
+	return 0;
 	return !strncmp(header->name, "A335BNLT", HDR_NAME_LEN);
 }
 
 static inline int board_is_evm_sk(struct am335x_baseboard_id *header)
 {
+	return 0;
 	return !strncmp("A335X_SK", header->name, HDR_NAME_LEN);
 }
 
 static inline int board_is_idk(struct am335x_baseboard_id *header)
 {
+	return 1;
 	return !strncmp(header->config, "SKU#02", 6);
 }
 
 static inline int board_is_gp_evm(struct am335x_baseboard_id *header)
 {
+	return 1;
 	return !strncmp("A33515BB", header->name, HDR_NAME_LEN);
 }
 
 static inline int board_is_evm_15_or_later(struct am335x_baseboard_id *header)
 {
+	return 1;
 	return (board_is_gp_evm(header) &&
 		strncmp("1.5", header->version, 3) <= 0);
 }
