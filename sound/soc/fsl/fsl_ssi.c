@@ -1265,7 +1265,7 @@ static int fsl_ssi_probe(struct platform_device *pdev)
 	char name[64];
 	bool shared;
 	bool ac97 = false;
-
+return -ENODEV;
 	/* SSIs that are not connected on the board should have a
 	 *      status = "disabled"
 	 * property in their device tree nodes.
