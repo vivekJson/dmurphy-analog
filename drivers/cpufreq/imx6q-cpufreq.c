@@ -61,27 +61,34 @@ static int imx6q_set_target(struct cpufreq_policy *policy, unsigned int index)
 	rcu_read_unlock();
 	volt_old = regulator_get_voltage(arm_reg);
 
-	dev_dbg(cpu_dev, "%u MHz, %ld mV --> %u MHz, %ld mV\n",
+	printk("%u MHz, %ld mV --> %u MHz, %ld mV\n",
 		old_freq / 1000, volt_old / 1000,
 		new_freq / 1000, volt / 1000);
-
 	/* scaling up?  scale voltage before frequency */
 	if (new_freq > old_freq) {
-		ret = regulator_set_voltage_tol(pu_reg, imx6_soc_volt[index], 0);
-		if (ret) {
-			dev_err(cpu_dev, "failed to scale vddpu up: %d\n", ret);
-			return ret;
+		 if (pu_reg) {
+			ret = regulator_set_voltage_tol(pu_reg, imx6_soc_volt[index], 0);
+			if (ret) {
+				dev_err(cpu_dev, "failed to scale vddpu up: %d\n", ret);
+				return ret;
+			}
 		}
-		ret = regulator_set_voltage_tol(soc_reg, imx6_soc_volt[index], 0);
-		if (ret) {
-			dev_err(cpu_dev, "failed to scale vddsoc up: %d\n", ret);
-			return ret;
+
+		if (soc_reg) {
+			ret = regulator_set_voltage_tol(soc_reg, imx6_soc_volt[index], 0);
+			if (ret) {
+				dev_err(cpu_dev, "failed to scale vddsoc up: %d\n", ret);
+				return ret;
+			}
 		}
-		ret = regulator_set_voltage_tol(arm_reg, volt, 0);
-		if (ret) {
-			dev_err(cpu_dev,
-				"failed to scale vddarm up: %d\n", ret);
-			return ret;
+
+		if (arm_reg) {
+			ret = regulator_set_voltage_tol(arm_reg, volt, 0);
+			if (ret) {
+				dev_err(cpu_dev,
+					"failed to scale vddarm up: %d\n", ret);
+				return ret;
+			}
 		}
 	}
 
@@ -111,22 +118,31 @@ static int imx6q_set_target(struct cpufreq_policy *policy, unsigned int index)
 
 	/* scaling down?  scale voltage after frequency */
 	if (new_freq < old_freq) {
-		ret = regulator_set_voltage_tol(arm_reg, volt, 0);
-		if (ret) {
-			dev_warn(cpu_dev,
-				 "failed to scale vddarm down: %d\n", ret);
-			ret = 0;
+		if (arm_reg) {
+			ret = regulator_set_voltage_tol(arm_reg, volt, 0);
+			if (ret) {
+				dev_warn(cpu_dev,
+					 "failed to scale vddarm down: %d\n", ret);
+				ret = 0;
+			}
 		}
-		ret = regulator_set_voltage_tol(soc_reg, imx6_soc_volt[index], 0);
-		if (ret) {
-			dev_warn(cpu_dev, "failed to scale vddsoc down: %d\n", ret);
-			ret = 0;
+
+		if (soc_reg) {
+			ret = regulator_set_voltage_tol(soc_reg, imx6_soc_volt[index], 0);
+			if (ret) {
+				dev_warn(cpu_dev, "failed to scale vddsoc down: %d\n", ret);
+				ret = 0;
+			}
 		}
-		ret = regulator_set_voltage_tol(pu_reg, imx6_soc_volt[index], 0);
-		if (ret) {
-			dev_warn(cpu_dev, "failed to scale vddpu down: %d\n", ret);
-			ret = 0;
+
+		if (pu_reg) {
+			ret = regulator_set_voltage_tol(pu_reg, imx6_soc_volt[index], 0);
+			if (ret) {
+				dev_warn(cpu_dev, "failed to scale vddpu down: %d\n", ret);
+				ret = 0;
+			}
 		}
+
 	}
 
 	return 0;
@@ -183,10 +199,25 @@ static int imx6q_cpufreq_probe(struct platform_device *pdev)
 		goto put_node;
 	}
 
-	arm_reg = devm_regulator_get(cpu_dev, "arm");
-	pu_reg = devm_regulator_get(cpu_dev, "pu");
-	soc_reg = devm_regulator_get(cpu_dev, "soc");
-	if (IS_ERR(arm_reg) || IS_ERR(pu_reg) || IS_ERR(soc_reg)) {
+	arm_reg = devm_regulator_get_optional(cpu_dev, "arm");
+	if (IS_ERR(arm_reg)) {
+		printk("%s: no arm_reg defined\n", __func__);
+		arm_reg = NULL;
+	}
+
+	pu_reg = devm_regulator_get_optional(cpu_dev, "pu");
+	if (IS_ERR(pu_reg)) {
+		printk("%s: no pu_reg defined\n", __func__);
+		pu_reg = NULL;
+	}
+
+	soc_reg = devm_regulator_get_optional(cpu_dev, "soc");
+	if (IS_ERR(soc_reg)) {
+		printk("%s: no soc_reg defined\n", __func__);
+		soc_reg = NULL;
+	}
+
+	if (arm_reg == NULL && pu_reg == NULL && soc_reg == NULL) {
 		dev_err(cpu_dev, "failed to get regulators\n");
 		ret = -ENOENT;
 		goto put_node;
@@ -267,13 +298,17 @@ soc_opp_out:
 	 * Calculate the ramp time for max voltage change in the
 	 * VDDSOC and VDDPU regulators.
 	 */
-	ret = regulator_set_voltage_time(soc_reg, imx6_soc_volt[0], imx6_soc_volt[num - 1]);
-	if (ret > 0)
-		transition_latency += ret * 1000;
-	ret = regulator_set_voltage_time(pu_reg, imx6_soc_volt[0], imx6_soc_volt[num - 1]);
-	if (ret > 0)
-		transition_latency += ret * 1000;
+	if (soc_reg) {
+		ret = regulator_set_voltage_time(soc_reg, imx6_soc_volt[0], imx6_soc_volt[num - 1]);
+		if (ret > 0)
+			transition_latency += ret * 1000;
+	}
 
+	if (pu_reg) {
+		ret = regulator_set_voltage_time(pu_reg, imx6_soc_volt[0], imx6_soc_volt[num - 1]);
+		if (ret > 0)
+			transition_latency += ret * 1000;
+	}
 	/*
 	 * OPP is maintained in order of increasing frequency, and
 	 * freq_table initialised from OPP is therefore sorted in the
@@ -287,10 +322,11 @@ soc_opp_out:
 				  freq_table[--num].frequency * 1000, true);
 	max_volt = dev_pm_opp_get_voltage(opp);
 	rcu_read_unlock();
-	ret = regulator_set_voltage_time(arm_reg, min_volt, max_volt);
-	if (ret > 0)
-		transition_latency += ret * 1000;
-
+	if (arm_reg) {
+		ret = regulator_set_voltage_time(arm_reg, min_volt, max_volt);
+		if (ret > 0)
+			transition_latency += ret * 1000;
+	}
 	ret = cpufreq_register_driver(&imx6q_cpufreq_driver);
 	if (ret) {
 		dev_err(cpu_dev, "failed register driver: %d\n", ret);
