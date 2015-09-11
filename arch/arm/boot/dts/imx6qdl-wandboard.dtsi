@@ -12,6 +12,21 @@
 / {
 	regulators {
 		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vbat: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "vbat";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	};
+/*	regulators {
+	compatible = "simple-bus";
 
 		reg_2p5v: 2p5v {
 			compatible = "regulator-fixed";
@@ -28,7 +43,7 @@
 			regulator-max-microvolt = <3300000>;
 			regulator-always-on;
 		};
-	};
+	};*/
 
 	sound {
 		compatible = "fsl,imx6-wandboard-sgtl5000",
@@ -58,6 +73,37 @@
 	status = "okay";
 };
 
+&i2c1 {
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1_1>;
+	status = "okay";
+
+	pmic: tps65911@2d {
+		compatible = "ti,tps65911";
+		reg = <0x2d>;
+
+		vcc1-supply = <&vbat>;
+		vcc2-supply = <&vbat>;
+		vcc3-supply = <&vddctrl_reg>;
+		vcc4-supply = <&vbat>;
+		vcc5-supply = <&vbat>;
+		vcc6-supply = <&vbat>;
+		vcc7-supply = <&vbat>;
+		vccio-supply = <&vbat>;
+
+		regulators {
+			vddctrl_reg: vddctrl {
+				regulator-compatible = "vddctrl";
+				regulator-name = "cpu";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <1400000>;
+				regulator-always-on;
+			};
+		};
+	};
+};
+
 &i2c2 {
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
@@ -68,9 +114,10 @@
 		compatible = "fsl,sgtl5000";
 		reg = <0x0a>;
 		clocks = <&clks 201>;
-		VDDA-supply = <&reg_2p5v>;
-		VDDIO-supply = <&reg_3p3v>;
+		VDDA-supply = <&vbat>;
+		VDDIO-supply = <&vbat>;
 	};
+
 };
 
 &iomuxc {
@@ -158,3 +205,4 @@
 	cd-gpios = <&gpio3 9 0>;
 	status = "okay";
 };
+
