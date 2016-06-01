@@ -89,6 +89,12 @@ typedef enum
     PE_BIST_CARRIER_MODE,
     PE_BIST_TEST_MODE,
 
+    PE_DRS_DFP_UFP_REJECT_SWAP,
+    PE_DRS_UFP_DFP_REJECT_SWAP,
+
+    PE_PRS_SRC_SNK_REJECT_SWAP,
+    PE_PRS_SNK_SRC_REJECT_SWAP,
+
     PE_NUM_STATES
 } usb_pd_pe_state_t;
 
@@ -129,6 +135,7 @@ typedef struct
     uint8_t             discover_identity_cnt;   // When sending Discover Identity to cable plug.  Max 20.  Zero upon data role swap.
     uint8_t             vdm_busy_cnt;  // Max of 1 responder busy.  Reset upon non-busy response.
 
+    bool                non_interruptable_ams;
     bool                power_role_swap;
     bool                pd_connected_since_attach;      /* PD connected at any point since attachment */
     bool                explicit_contract;

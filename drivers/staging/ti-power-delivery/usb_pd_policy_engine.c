@@ -1,7 +1,7 @@
 /*
  * Texas Instruments TUSB422 Power Delivery
  *
- * Author: 
+ * Author:
  * Copyright: (C) 2016 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,8 +24,8 @@
 
 /* PD Counter */
 #define N_CAPS_COUNT        50
-#define N_HARD_RESET_COUNT  2  
-#define N_DISCOVER_IDENTITY_COUNT 20 
+#define N_HARD_RESET_COUNT  2
+#define N_DISCOVER_IDENTITY_COUNT 20
 
 /* PD Time Values */
 #define T_NO_RESPONSE_MS            5000   /* 4.5 - 5.5 s */
@@ -55,7 +55,6 @@ extern usb_pd_port_config_t* usb_pd_pm_get_config(unsigned int port);
 extern void build_rdo(unsigned int port);
 extern uint32_t get_data_object(uint8_t *obj_data);
 
-//static void pe_src_transition_to_default_exit(usb_pd_port_t *dev);
 
 #if DEBUG_LEVEL >= 1
 static const char *state2string[PE_NUM_STATES]=
@@ -111,7 +110,14 @@ static const char *state2string[PE_NUM_STATES]=
     "SNK_GIVE_SINK_STATUS",
 
     "BIST_CARRIER_MODE",
-    "BIST_TEST_MODE"
+    "BIST_TEST_MODE",
+
+    "DRS_DFP_UFP_REJECT_SWAP",
+    "DRS_UFP_DFP_REJECT_SWAP",
+
+    "PRS_SRC_SNK_REJECT_SWAP",
+    "PRS_SNK_SRC_REJECT_SWAP",
+
 };
 
 void pe_debug_state_history(unsigned int port)
@@ -238,7 +244,7 @@ void usb_pd_pe_init(unsigned int port, usb_pd_port_config_t *config)
 
     dev->src_settling_time = config->src_settling_time_ms;
     dev->high_pwr_cable = false;
-    
+
     return;
 }
 
@@ -249,8 +255,8 @@ void usb_pd_pe_connection_state_change_handler(unsigned int port, tcpc_state_t s
 
     switch (state)
     {
-        case TCPC_STATE_UNATTACHED_SRC:          
-        case TCPC_STATE_UNATTACHED_SNK:   
+        case TCPC_STATE_UNATTACHED_SRC:
+        case TCPC_STATE_UNATTACHED_SNK:
             dev->power_role_swap = false;
             dev->pd_connected_since_attach = false;
             dev->explicit_contract = false;
@@ -261,12 +267,13 @@ void usb_pd_pe_connection_state_change_handler(unsigned int port, tcpc_state_t s
             dev->hard_reset_cnt = 0;
 
             dev->high_pwr_cable = false;
+            dev->non_interruptable_ams = false;
 
             timer_cancel_no_response(dev);
             timer_cancel(&dev->timer);
             break;
 
-        case TCPC_STATE_ATTACHED_SRC:  
+        case TCPC_STATE_ATTACHED_SRC:
             dev->data_role = PD_DATA_ROLE_DFP;
             pe_set_state(dev, PE_SRC_STARTUP);
 //            tcpm_enable_pd_receive(port);
@@ -276,16 +283,16 @@ void usb_pd_pe_connection_state_change_handler(unsigned int port, tcpc_state_t s
             dev->data_role = PD_DATA_ROLE_UFP;
             pe_set_state(dev, PE_SNK_STARTUP);
 //            tcpm_enable_pd_receive(port);
-            break;     
+            break;
 
-        case TCPC_STATE_ORIENTED_DEBUG_ACC_SRC: 
-        case TCPC_STATE_DEBUG_ACC_SNK:  
+        case TCPC_STATE_ORIENTED_DEBUG_ACC_SRC:
+        case TCPC_STATE_DEBUG_ACC_SNK:
             break;
 
         case TCPC_STATE_UNORIENTED_DEBUG_ACC_SRC:
-        case TCPC_STATE_AUDIO_ACC:    
+        case TCPC_STATE_AUDIO_ACC:
             // Do nothing.
-            break;          
+            break;
 
         default:
             break;
@@ -332,7 +339,7 @@ static void usb_pd_pe_tx_data_msg(unsigned int port, msg_hdr_data_msg_type_t msg
         payload_ptr[0] = (uint8_t)(rdo & 0xFF);
         payload_ptr[1] = (uint8_t)((rdo & 0xFF00) >> 8);
         payload_ptr[2] = (uint8_t)((rdo & 0xFF0000) >> 16);
-        payload_ptr[3] = (uint8_t)((rdo & 0xFF000000) >> 24);  
+        payload_ptr[3] = (uint8_t)((rdo & 0xFF000000) >> 24);
     }
     else
     {
@@ -343,7 +350,7 @@ static void usb_pd_pe_tx_data_msg(unsigned int port, msg_hdr_data_msg_type_t msg
     {
         usb_pd_prl_tx_data_msg(port, buf, msg_type, sop_type, ndo);
     }
-    
+
     return;
 }
 
@@ -352,25 +359,33 @@ static void usb_pd_pe_unhandled_rx_msg(usb_pd_port_t *dev)
 {
     if (dev->power_role == PD_PWR_ROLE_SNK)
     {
-        if (*dev->current_state == PE_SNK_READY)
+        if (*dev->current_state == PE_SNK_TRANSITION_SINK)
+        {
+            pe_set_state(dev, PE_SNK_HARD_RESET);
+        }
+        else if (*dev->current_state == PE_SNK_READY)
         {
             pe_set_state(dev, PE_SNK_SEND_NOT_SUPPORTED);
         }
-        else if ((*dev->current_state == PE_SNK_EVALUATE_CAPABILITY) ||
-                 (*dev->current_state == PE_SNK_SELECT_CAPABILITY) ||
-                 (*dev->current_state == PE_SNK_TRANSITION_SINK))
+        else if (dev->non_interruptable_ams)
         {
             pe_set_state(dev, PE_SNK_SEND_SOFT_RESET);
         }
     }
     else /* SRC */
     {
-        if (*dev->current_state == PE_SRC_READY)
+        if ((*dev->current_state == PE_SRC_TRANSITION_PS) ||
+            (*dev->current_state == PE_SRC_TRANSITION_PS_EXIT) ||
+            (*dev->current_state == PE_SRC_NEGOTIATE_CAPABILITY) ||
+            (*dev->current_state == PE_SRC_TRANSITION_SUPPLY))
+        {
+            pe_set_state(dev, PE_SRC_HARD_RESET);
+        }
+        else if (*dev->current_state == PE_SRC_READY)
         {
             pe_set_state(dev, PE_SRC_SEND_NOT_SUPPORTED);
         }
-        else if ((*dev->current_state == PE_SRC_NEGOTIATE_CAPABILITY) ||
-                 (*dev->current_state == PE_SRC_TRANSITION_SUPPLY))
+        else if (dev->non_interruptable_ams)
         {
             pe_set_state(dev, PE_SRC_SEND_SOFT_RESET);
         }
@@ -390,9 +405,9 @@ static void usb_pd_pe_ctrl_msg_rx_handler(usb_pd_port_t *dev)
             {
                 pe_set_state(dev, PE_SNK_TRANSITION_SINK);
             }
-            break;    
+            break;
 
-        case CTRL_MSG_TYPE_ACCEPT:  
+        case CTRL_MSG_TYPE_ACCEPT:
             if (*dev->current_state == PE_SRC_SEND_SOFT_RESET)
             {
                 // Stop sender response timer.
@@ -411,7 +426,7 @@ static void usb_pd_pe_ctrl_msg_rx_handler(usb_pd_port_t *dev)
                 timer_cancel(&dev->timer);
                 pe_set_state(dev, PE_SNK_TRANSITION_SINK);
             }
-            break;    
+            break;
 
         case CTRL_MSG_TYPE_REJECT:
             if (*dev->current_state == PE_SNK_SELECT_CAPABILITY)
@@ -425,46 +440,62 @@ static void usb_pd_pe_ctrl_msg_rx_handler(usb_pd_port_t *dev)
                     pe_set_state(dev, PE_SNK_READY);
                 }
             }
-            break;    
+            break;
 
         case CTRL_MSG_TYPE_PING:
-            // Sink may receive ping msgs but should ignore them.  
+            // Sink may receive ping msgs but should ignore them.
             pinged = true;
-            break;    
+            break;
 
-        case CTRL_MSG_TYPE_PS_RDY: 
+        case CTRL_MSG_TYPE_PS_RDY:
             if (*dev->current_state == PE_SNK_TRANSITION_SINK)
             {
                 // Cancel PSTransition timer.
                 timer_cancel(&dev->timer);
                 pe_set_state(dev, PE_SNK_READY);
             }
-            break;    
+            break;
 
-        case CTRL_MSG_TYPE_GET_SRC_CAP: 
+        case CTRL_MSG_TYPE_GET_SRC_CAP:
             if (*dev->current_state == PE_SRC_READY)
             {
                 pe_set_state(dev, PE_SRC_SEND_CAPS);
             }
-            break;    
+            break;
 
-        case CTRL_MSG_TYPE_GET_SNK_CAP:  
+        case CTRL_MSG_TYPE_GET_SNK_CAP:
             if (*dev->current_state == PE_SNK_READY)
             {
                 pe_set_state(dev, PE_SNK_GIVE_SINK_CAP);
             }
-            break;  
+            break;
 
-        case CTRL_MSG_TYPE_DR_SWAP: 
-            break;    
+        case CTRL_MSG_TYPE_DR_SWAP:
+            if (dev->data_role == PD_DATA_ROLE_UFP)
+            {
+                pe_set_state(dev, PE_DRS_UFP_DFP_REJECT_SWAP);
+            }
+            else
+            {
+                pe_set_state(dev, PE_DRS_DFP_UFP_REJECT_SWAP);
+            }
+            break;
 
-        case CTRL_MSG_TYPE_PR_SWAP:        
-            break;    
+        case CTRL_MSG_TYPE_PR_SWAP:
+            if (dev->power_role == PD_PWR_ROLE_SNK)
+            {
+                pe_set_state(dev, PE_PRS_SNK_SRC_REJECT_SWAP);
+            }
+            else
+            {
+                pe_set_state(dev, PE_PRS_SRC_SNK_REJECT_SWAP);
+            }
+            break;
 
-        case CTRL_MSG_TYPE_VCONN_SWAP:     
-            break; 
+        case CTRL_MSG_TYPE_VCONN_SWAP:
+            break;
 
-        case CTRL_MSG_TYPE_WAIT:     
+        case CTRL_MSG_TYPE_WAIT:
             if (*dev->current_state == PE_SNK_SELECT_CAPABILITY)
             {
                 if (!dev->explicit_contract)
@@ -479,7 +510,7 @@ static void usb_pd_pe_ctrl_msg_rx_handler(usb_pd_port_t *dev)
             }
             break;
 
-        case CTRL_MSG_TYPE_SOFT_RESET:    
+        case CTRL_MSG_TYPE_SOFT_RESET:
             if (dev->power_role == PD_PWR_ROLE_SNK)
             {
                 pe_set_state(dev, PE_SNK_SOFT_RESET);
@@ -490,7 +521,7 @@ static void usb_pd_pe_ctrl_msg_rx_handler(usb_pd_port_t *dev)
             }
             break;
 
-        case CTRL_MSG_TYPE_NOT_SUPPORTED:  
+        case CTRL_MSG_TYPE_NOT_SUPPORTED:
             if (*dev->current_state == PE_SRC_READY)
             {
                 pe_set_state(dev, PE_SRC_NOT_SUPPORTED_RECEIVED);
@@ -499,19 +530,20 @@ static void usb_pd_pe_ctrl_msg_rx_handler(usb_pd_port_t *dev)
             {
                 pe_set_state(dev, PE_SNK_NOT_SUPPORTED_RECEIVED);
             }
-            break;    
+            break;
 
         case CTRL_MSG_TYPE_GET_SRC_CAP_EXT:
-            break;    
+            break;
 
-        case CTRL_MSG_TYPE_GET_STATUS:     
-            break;    
+        case CTRL_MSG_TYPE_GET_STATUS:
+            break;
 
         case CTRL_MSG_TYPE_FR_SWAP:
-            break;    
+            break;
 
         default:
             CRIT("Invalid ctrl rx_msg_type 0x%x\n!", dev->rx_msg_type);
+            pe_set_state(dev, PE_SNK_SEND_SOFT_RESET);
             break;
     }
 
@@ -549,7 +581,7 @@ static void usb_pd_pe_data_msg_rx_handler(usb_pd_port_t *dev)
             break;
 
         case DATA_MSG_TYPE_REQUEST:
-            if ((*dev->current_state == PE_SRC_SEND_CAPS) || 
+            if ((*dev->current_state == PE_SRC_SEND_CAPS) ||
                 (*dev->current_state == PE_SRC_READY))
             {
                 // Cancel sender response timer.
@@ -558,12 +590,12 @@ static void usb_pd_pe_data_msg_rx_handler(usb_pd_port_t *dev)
             }
             break;
 
-        case DATA_MSG_TYPE_BIST:       
-            if ((*dev->current_state == PE_SNK_READY) || 
+        case DATA_MSG_TYPE_BIST:
+            if ((*dev->current_state == PE_SNK_READY) ||
                 (*dev->current_state == PE_SRC_READY))
             {
                 // Check we are operating at vSafe5V and power role is not swapped.
-                if ((dev->object_position == 1) && 
+                if ((dev->object_position == 1) &&
                     (dev->power_role == dev->data_role))
                 {
                     // Check BIST param, data_obj[31:28].
@@ -573,7 +605,7 @@ static void usb_pd_pe_data_msg_rx_handler(usb_pd_port_t *dev)
                     }
                     else if ((dev->rx_msg_buf[3] >> 4) == BIST_TEST_DATA)
                     {
-                        // Set BIST mode so we don't keep getting Rx interrupts.
+                        // Set BIST mode so we don't keep getting Rx interrupts. (not functional in PG1.0)
                         tcpm_set_bist_test_mode(dev->port);
 
                         pe_set_state(dev, PE_BIST_TEST_MODE);
@@ -588,7 +620,7 @@ static void usb_pd_pe_data_msg_rx_handler(usb_pd_port_t *dev)
             }
             break;
 
-        case DATA_MSG_TYPE_SNK_CAPS:  
+        case DATA_MSG_TYPE_SNK_CAPS:
             if (*dev->current_state == PE_SRC_GET_SINK_CAP)
             {
                 // Cancel sender response timer.
@@ -602,14 +634,15 @@ static void usb_pd_pe_data_msg_rx_handler(usb_pd_port_t *dev)
         case DATA_MSG_TYPE_BATT_STATUS:
             break;
 
-        case DATA_MSG_TYPE_ALERT:      
+        case DATA_MSG_TYPE_ALERT:
             break;
 
-        case DATA_MSG_TYPE_VENDOR:     
+        case DATA_MSG_TYPE_VENDOR:
             break;
 
         default:
             CRIT("Invalid data rx_msg_type 0x%x\n!", dev->rx_msg_type);
+            pe_set_state(dev, PE_SNK_SEND_SOFT_RESET);
             break;
     }
 
@@ -647,7 +680,7 @@ static void timeout_typec_send_source_cap(unsigned int port)
     dev->caps_cnt++;
 
     INFO("CapsCnt = %u\n", dev->caps_cnt);
-    
+
     if ((dev->caps_cnt > N_CAPS_COUNT) &&
         !dev->pd_connected_since_attach)
     {
@@ -705,11 +738,12 @@ static void timeout_ps_hard_reset(unsigned int port)
 static void pe_src_startup_entry(usb_pd_port_t *dev)
 {
     usb_pd_prl_reset(dev->port);
-    
+
     // Reset source caps count.
     dev->caps_cnt = 0;
 
     dev->power_role = PD_PWR_ROLE_SRC;
+    dev->non_interruptable_ams = false;
 
     if (dev->power_role_swap)
     {
@@ -726,26 +760,6 @@ static void pe_src_startup_entry(usb_pd_port_t *dev)
 
 static void pe_src_discovery_entry(usb_pd_port_t *dev)
 {
-
-//    if ((dev->caps_cnt > N_CAPS_COUNT) &&
-//        !dev->pd_connected_since_attach)
-//    {
-//        // Optionally go to PE_SRC_DISABLED.
-//        pe_set_state(dev, PE_SRC_DISABLED);
-//
-//        // This check is not required since we are optionally going to PE_SRC_DISABLED above.
-//        //if (dev->no_response_timed_out &&
-//        //    (dev->hard_reset_cnt > N_HARD_RESET_COUNT))
-//        //{
-//        //    pe_set_state(dev, PE_SRC_DISABLED);
-//        //}
-//
-//    }
-//    else if (++dev->caps_cnt <= N_CAPS_COUNT)
-//    {
-//        timer_start(&dev->timer, T_TYPEC_SEND_SOURCE_CAP_MS, timeout_typec_send_source_cap);
-//    }
-
     // Start SourceCapabilityTimer.
     timer_start(&dev->timer, T_TYPEC_SEND_SOURCE_CAP_MS, timeout_typec_send_source_cap);
 
@@ -766,7 +780,7 @@ static void timeout_vbus(unsigned int port)
 
 static void pe_src_transition_to_default_entry(usb_pd_port_t *dev)
 {
-    // Request policy manager to set the Port Data Role to DFP, 
+    // Request policy manager to set the Port Data Role to DFP,
 
     // Disable VCONN.
     tcpm_vconn_control(dev->port, false);
@@ -801,7 +815,7 @@ static void pe_src_transition_to_default_exit(usb_pd_port_t *dev)
 
     // Enable VCONN.
     tcpm_vconn_control(dev->port, true);
-    
+
     timer_start_no_response(dev);
 
     vbus_timed_out = false;
@@ -825,10 +839,9 @@ static void pe_src_send_caps_entry(usb_pd_port_t *dev)
 
 static void pe_src_negotiate_capability_entry(usb_pd_port_t *dev)
 {
-//    uint32_t *rdo = (uint32_t *)dev->rx_msg_buf;
     uint16_t operating_current;
-    uint16_t src_max_current = 0;
-
+    uint16_t src_max_current;
+    usb_pd_port_config_t *config = usb_pd_pm_get_config(dev->port);
     uint32_t rdo = get_data_object(dev->rx_msg_buf);
 
     // BQ - Battery RDO not supported.
@@ -837,20 +850,28 @@ static void pe_src_negotiate_capability_entry(usb_pd_port_t *dev)
     operating_current = (rdo >> 10) & 0x3FF;
 
     if ((dev->object_position > 0) &&
+        (dev->object_position <= config->num_src_pdos) &&
         (dev->object_position <= PD_MAX_PDO_NUM))
     {
         src_max_current = dev->src_pdo[dev->object_position - 1] & 0x3FF;
-    }
 
-    DEBUG("PE_SRC_NEG_CAP: ObjPos = %u, req = %u mA, avail = %u mA\n", 
-          dev->object_position, operating_current * 10, src_max_current * 10);
+        DEBUG("PE_SRC_NEG_CAP: ObjPos = %u, req = %u mA, avail = %u mA\n",
+              dev->object_position, operating_current * 10, src_max_current * 10);
 
-    if (operating_current <= src_max_current)
-    {
-        pe_set_state(dev, PE_SRC_TRANSITION_SUPPLY);
+        if (operating_current <= src_max_current)
+        {
+            pe_set_state(dev, PE_SRC_TRANSITION_SUPPLY);
+        }
+        else
+        {
+            // Request cannot be met.
+            pe_set_state(dev, PE_SRC_CAPABILITY_RESPONSE);
+        }
     }
     else
     {
+        DEBUG("PE_SRC_NEG_CAP: ObjPos = %u is invalid!\n", dev->object_position);
+
         // Request cannot be met.
         pe_set_state(dev, PE_SRC_CAPABILITY_RESPONSE);
     }
@@ -921,8 +942,8 @@ static void pd_transition_power_supply(usb_pd_port_t *dev)
         // If supporting more than one higher voltage.  Check PDO to determine voltage.
         tcpm_src_vbus_hi_volt_enable(dev->port);
 
-        // Use Hi voltage alarm to determine when power supply is ready. 
-        // Alteratively, policy manager could notify policy engine or may be possible to 
+        // Use Hi voltage alarm to determine when power supply is ready.
+        // Alteratively, policy manager could notify policy engine or may be possible to
         // fixed delay if system timing is known.
 
         // Program Hi voltage alarm based on PDO.
@@ -962,6 +983,7 @@ static void pe_src_capability_response_entry(usb_pd_port_t *dev)
 static void pe_src_ready_entry(usb_pd_port_t *dev)
 {
     // Notify PRL of end of AMS. - BQ
+    dev->non_interruptable_ams = false;
 
     dev->pd_connected_since_attach = true;
     dev->explicit_contract = true;
@@ -1075,6 +1097,7 @@ static void pe_snk_startup_entry(usb_pd_port_t *dev)
     usb_pd_prl_reset(dev->port);
 
     dev->power_role = PD_PWR_ROLE_SNK;
+    dev->non_interruptable_ams = false;
 
     pe_set_state(dev, PE_SNK_DISCOVERY);
 
@@ -1089,7 +1112,7 @@ static void pe_snk_discovery_entry(usb_pd_port_t *dev)
     {
         tcpm_error_recovery(dev->port);
     }
-    else 
+    else
     {
         vbus_timed_out = false;
         timer_start(&dev->timer, T_SRC_TURN_ON_MS, timeout_vbus);
@@ -1116,6 +1139,8 @@ static void pe_snk_evaluate_capability_entry(usb_pd_port_t *dev)
 {
     timer_cancel_no_response(dev);
     dev->hard_reset_cnt = 0;
+
+    dev->non_interruptable_ams = true;
 
     // Ask policy manager to evaluate options based on supplied capabilities.
     usb_pd_pm_evaluate_src_caps(dev->port);
@@ -1175,7 +1200,7 @@ static void pe_snk_ready_entry(usb_pd_port_t *dev)
 
     tcpm_set_sink_disconnect_threshold(dev->port, threshold);
 
-    // On entry to the PE_SNK_Ready state if this is a DFP which needs to establish communication 
+    // On entry to the PE_SNK_Ready state if this is a DFP which needs to establish communication
     // with a Cable Plug, then the Policy Engine shall initialize and run the DiscoverIdentityTimer
 
     return;
@@ -1201,6 +1226,11 @@ static void pe_snk_soft_reset_entry(usb_pd_port_t *dev)
     return;
 }
 
+static void pe_reject_swap_entry(usb_pd_port_t *dev)
+{
+    usb_pd_prl_tx_ctrl_msg(dev->port, buf, CTRL_MSG_TYPE_REJECT, TCPC_TX_SOP);
+    return;
+}
 
 static void pe_snk_send_soft_reset_entry(usb_pd_port_t *dev)
 {
@@ -1232,7 +1262,7 @@ static void pe_snk_transition_to_default_entry(usb_pd_port_t *dev)
     // Disable VCONN.
     tcpm_vconn_control(dev->port, false);
     dev->explicit_contract = false;
-    
+
     timer_start_no_response(dev);
 
     // BQ - Assume sink has reached default level.
@@ -1347,6 +1377,13 @@ static const state_entry_fptr pe_state_entry[PE_NUM_STATES] =
 
     pe_bist_carrier_mode_entry,           /* PE_BIST_CARRIER_MODE          */
     pe_bist_test_mode_entry,              /* PE_BIST_TEST_MODE             */
+
+    pe_reject_swap_entry,                 /* PE_DRS_DFP_UFP_REJECT_SWAP    */
+    pe_reject_swap_entry,                 /* PE_DRS_UFP_DFP_REJECT_SWAP    */
+
+    pe_reject_swap_entry,                 /* PE_PRS_SRC_SNK_REJECT_SWAP    */
+    pe_reject_swap_entry,                 /* PE_PRS_SNK_SRC_REJECT_SWAP    */
+
 };
 
 
@@ -1416,8 +1453,7 @@ void usb_pd_pe_notify(unsigned int port, usb_pd_prl_alert_t prl_alert)
     switch (prl_alert)
     {
         case PRL_ALERT_HARD_RESET_RECEIVED:
-            // Enable PD message passing.
-//            tcpm_enable_pd_receive(port);
+            // PD message passing is enabled in protocol layer.
 
             if (dev->power_role == PD_PWR_ROLE_SNK)
             {
@@ -1444,16 +1480,14 @@ void usb_pd_pe_notify(unsigned int port, usb_pd_prl_alert_t prl_alert)
                     dev->hard_reset_cnt = 0;
                     timer_cancel_no_response(dev);
                     timer_start(&dev->timer, T_SENDER_RESPONSE_MS, timeout_sender_response);
+                    dev->non_interruptable_ams = true;
                     break;
 
                 case PE_SRC_HARD_RESET:
-                    // Enable PD message passing.
-//                    tcpm_enable_pd_receive(port);
+                    // Do nothing.  PD message passing is enabled in protocol layer.
                     break;
 
                 case PE_SNK_HARD_RESET:
-                    // Enable PD message passing.
-//                    tcpm_enable_pd_receive(port);
                     pe_set_state(dev, PE_SNK_TRANSITION_TO_DEFAULT);
                     break;
 
@@ -1494,13 +1528,27 @@ void usb_pd_pe_notify(unsigned int port, usb_pd_prl_alert_t prl_alert)
 
                 case PE_SRC_PING:
                 case PE_SRC_SEND_NOT_SUPPORTED:
+                case PE_PRS_SRC_SNK_REJECT_SWAP:
                     pe_set_state(dev, PE_SRC_READY);
                     break;
 
                 case PE_SNK_SEND_NOT_SUPPORTED:
                 case PE_SNK_GET_SOURCE_CAP:
                 case PE_SNK_GIVE_SINK_CAP:
+                case PE_PRS_SNK_SRC_REJECT_SWAP:
                     pe_set_state(dev, PE_SNK_READY);
+                    break;
+
+                case PE_DRS_DFP_UFP_REJECT_SWAP:
+                case PE_DRS_UFP_DFP_REJECT_SWAP:
+                    if (dev->power_role == PD_PWR_ROLE_SNK)
+                    {
+                        pe_set_state(dev, PE_SNK_READY);
+                    }
+                    else
+                    {
+                        pe_set_state(dev, PE_SRC_READY);
+                    }
                     break;
 
                 default:
@@ -1530,7 +1578,7 @@ void usb_pd_pe_notify(unsigned int port, usb_pd_prl_alert_t prl_alert)
             {
                 if (*dev->current_state == PE_SRC_SEND_SOFT_RESET)
                 {
-                    // Send Hard reset within tHardReset (5ms).  
+                    // Send Hard reset within tHardReset (5ms).
                     pe_set_state(dev, PE_SRC_HARD_RESET);
                 }
                 else if ((*dev->current_state == PE_SRC_SEND_CAPS) &&
@@ -1540,12 +1588,11 @@ void usb_pd_pe_notify(unsigned int port, usb_pd_prl_alert_t prl_alert)
                 }
                 else
                 {
-                    // PE_SRC_Send_Soft_Reset state shall be entered from any state 
+                    // PE_SRC_Send_Soft_Reset state shall be entered from any state
                     // when a Protocol Error is detected by the Protocol Layer during a Non-interruptible AMS
                     pe_set_state(dev, PE_SRC_SEND_SOFT_RESET);
                 }
             }
-
             break;
 
         case PRL_ALERT_MSG_RECEIVED:
@@ -1656,4 +1703,3 @@ void usb_pd_pe_voltage_alarm_handler(unsigned int port, bool hi_voltage)
 
     return;
 }
-
