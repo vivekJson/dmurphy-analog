@@ -81,6 +81,27 @@
 		>;
 	};
 
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			0x158 (PIN_INPUT_PULLUP | MUX_MODE2) 	/* spi0_d1.i2c1_sda */
+			0x15c (PIN_INPUT_PULLUP | MUX_MODE2)	/* spi0_cs0.i2c1_scl */
+			0x78 0x17 /* gpio1_28 OUTPUT_PULLUP | MODE7 */
+			0x40 (PIN_INPUT | MUX_MODE7) 	/* gpio1_16 alert*/
+			0x44 (PIN_INPUT | MUX_MODE7) 	/* gpio1_17 vbus_snk */
+			0x1a4 ( PIN_OUTPUT | MUX_MODE7 ) /* (C13) mcasp0_fsr.gpio3[19] vbus_src */
+			0x1ac ( PIN_OUTPUT | MUX_MODE7 ) /* (A14) mcasp0_ahclkx.gpio3[21] vconn_en*/
+			0x164 ( PIN_OUTPUT | MUX_MODE7 ) /* (C18) eCAP0_in_PWM0_out.gpio0[7] 4v gpio*/
+		>;
+	};
+
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			0x178 (PIN_INPUT_PULLUP | MUX_MODE3)    /* uart1_ctsn.i2c2_sda */
+			0x17c (PIN_INPUT_PULLUP | MUX_MODE3)    /* uart1_rtsn.i2c2_scl */
+		>;
+	};
+
+
 	uart0_pins: pinmux_uart0_pins {
 		pinctrl-single,pins = <
 			0x170 (PIN_INPUT_PULLUP | MUX_MODE0)	/* uart0_rxd.uart0_rxd */
@@ -238,6 +259,28 @@
 		reg = <0x24>;
 	};
 
+};
+
+&i2c1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+
+	clock-frequency = <400000>;
+
+	usb_power_dev: usb_power_dev@20 {
+		compatible = "ti,tusb422-usb-pd";
+		reg = <0x20>;
+		ti,supply-type = <1>;
+		ti,min-voltage = <3200>;
+		ti,max-voltage = <5000>;
+		ti,alert-gpio = <&gpio1 16 GPIO_ACTIVE_HIGH>;
+		ti,vbus-snk-gpio = <&gpio1 28 GPIO_ACTIVE_HIGH>;
+		ti,vbus-src-gpio = <&gpio3 21 GPIO_ACTIVE_HIGH>;
+		ti,vconn-en-gpio = <&gpio3 19 GPIO_ACTIVE_HIGH>;
+		ti,vbus-hv-gpio = <&gpio1 17 GPIO_ACTIVE_HIGH>;
+		ti,vbus-5v-gpio = <&gpio0 7 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 /include/ "tps65217.dtsi"
