@@ -53,8 +53,8 @@ int8_t tcpc_write16(unsigned int port, uint8_t reg, uint16_t data)
 
 int8_t tcpc_write_block(unsigned int port, uint8_t reg, uint8_t *data, uint8_t len)
 {
-
-	return tusb422_write(reg, (int *) data, len);
+	printk("%s: enter \n", __func__);
+	return tusb422_write(reg, data, len);
 };
 
 // Modifies an 8-bit register.  
@@ -63,6 +63,9 @@ void tcpc_modify8(unsigned int port,
                   uint8_t clr_mask,
                   uint8_t set_mask)
 {
+
+	printk("%s: enter \n", __func__);
+
 	tusb422_modify_reg(reg, clr_mask, set_mask);
 	return;
 };

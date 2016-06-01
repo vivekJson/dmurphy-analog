@@ -1,0 +1,3 @@
+config TUSB422
+	bool "Enable TUSB422 Power Delivery"
+	default y

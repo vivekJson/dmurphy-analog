@@ -30,10 +30,6 @@
 
 #include "tusb422_common.h"
 
-#define PDO1   0
-#define PDO2   1
-#define PDO3   2
-
 struct tusb422_pwr_delivery {
 	struct device *dev;
 	struct power_supply *ps;
@@ -237,7 +233,6 @@ int tusb422_stop_timer(void)
 
 int tusb422_set_vbus(int vbus_sel)
 {
-
 	printk("%s: vBus %i\n", __func__, vbus_sel);
 	if (vbus_sel == VBUS_SRC_5V) {
 		/* Disable high voltage. */
@@ -263,7 +258,6 @@ int tusb422_set_vbus(int vbus_sel)
 
 int tusb422_clr_vbus(int vbus_sel)
 {
-	printk("%s: vBus %i\n", __func__, vbus_sel);
 	if (vbus_sel == VBUS_SRC_5V) {
 		/* Disable SRC switch. */
 		gpiod_direction_output(tusb422_pd->vbus_src_gpio, 0);
@@ -374,10 +368,13 @@ static int tusb422_of_get_gpios(struct tusb422_pwr_delivery *tusb422_pd)
 static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 {
 	struct device_node *of_node = tusb422_pd->dev->of_node;
+	struct device_node *pp;
 	unsigned int supply_type;
-	unsigned int min_volt;
-	unsigned int max_volt;
+	unsigned int min_volt, current_flow, peak_current, pdo;
+	unsigned int max_volt, max_current, max_power;
+	unsigned int op_current, min_current, op_power;
 	int ret;
+	int num_of_sink = 0, num_of_src = 0;
 
 	struct device *dev = tusb422_pd->dev;
 
@@ -387,103 +384,170 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 	if (!tusb422_pd->port_config)
 		return -ENOMEM;
 
-	tusb422_pd->port_config->usb_comm_capable = true;
-	tusb422_pd->port_config->usb_suspend_supported = false;
-	tusb422_pd->port_config->externally_powered = false; 
-	tusb422_pd->port_config->dual_role_data = false;
-	tusb422_pd->port_config->unchunked_msg_support = false; /* Always false for TUSB422 */
+	if (of_property_read_bool(of_node, "ti,usb_comm_capable"))
+		tusb422_pd->port_config->usb_comm_capable = true;
 
-	tusb422_pd->port_config->num_src_pdos = 2;
-	/* vSafe5V Source PDO */
-	tusb422_pd->port_config->src_caps[PDO1].SupplyType = SUPPLY_TYPE_FIXED;
-	tusb422_pd->port_config->src_caps[PDO1].PeakI = PEAK_CURRENT_0;
-	tusb422_pd->port_config->src_caps[PDO1].MinV = PDO_VOLT(5000);
-	tusb422_pd->port_config->src_caps[PDO1].MaxV = 0;   /* N/A */  
-	tusb422_pd->port_config->src_caps[PDO1].MaxI = PDO_CURR(3000);
-	tusb422_pd->port_config->src_caps[PDO1].MaxPower = 0; /* N/A */
-	/* Fixed, Battery, and Variable Supply PDOs each in ascending voltage order */
-	tusb422_pd->port_config->src_caps[PDO2].SupplyType = SUPPLY_TYPE_FIXED;
-	tusb422_pd->port_config->src_caps[PDO2].PeakI = PEAK_CURRENT_0;
-	tusb422_pd->port_config->src_caps[PDO2].MinV = PDO_VOLT(15000);
-	tusb422_pd->port_config->src_caps[PDO2].MaxV = 0;   /* N/A */
-	tusb422_pd->port_config->src_caps[PDO2].MaxI = PDO_CURR(3000);    
-	tusb422_pd->port_config->src_caps[PDO2].MaxPower = 0; /* N/A */
+	if (of_property_read_bool(of_node, "ti,usb_suspend_supported"))
+		tusb422_pd->port_config->usb_suspend_supported = true;
 
-	tusb422_pd->port_config->src_settling_time_ms = 50;
-		       
-	tusb422_pd->port_config->num_snk_pdos = 2;
-	/* vSafe5V Sink PDO */
-	tusb422_pd->port_config->snk_caps[PDO1].SupplyType = SUPPLY_TYPE_FIXED;
-	tusb422_pd->port_config->snk_caps[PDO1].PeakI = PEAK_CURRENT_0;      
-	tusb422_pd->port_config->snk_caps[PDO1].MinV = PDO_VOLT(5000);
-	tusb422_pd->port_config->snk_caps[PDO1].MaxV = 0; /* N/A */
-	tusb422_pd->port_config->snk_caps[PDO1].MaxOperatingCurrent = PDO_CURR(3000);
-	tusb422_pd->port_config->snk_caps[PDO1].MinOperatingCurrent = PDO_CURR(900);
-	tusb422_pd->port_config->snk_caps[PDO1].OperationalCurrent = PDO_CURR(900);
-	tusb422_pd->port_config->snk_caps[PDO1].MaxOperatingPower = 0; /* N/A */
-	tusb422_pd->port_config->snk_caps[PDO1].MinOperatingPower = 0; /* N/A */
-	tusb422_pd->port_config->snk_caps[PDO1].OperationalPower = 0;  /* N/A */
-	/* Sink PDO #2 */
-	tusb422_pd->port_config->snk_caps[PDO2].SupplyType = SUPPLY_TYPE_FIXED;
-	tusb422_pd->port_config->snk_caps[PDO2].PeakI = PEAK_CURRENT_0;      
-	tusb422_pd->port_config->snk_caps[PDO2].MinV = PDO_VOLT(14800);
-	tusb422_pd->port_config->snk_caps[PDO2].MaxV = 0; /* N/A */
-	tusb422_pd->port_config->snk_caps[PDO2].MaxOperatingCurrent = PDO_CURR(3000);
-	tusb422_pd->port_config->snk_caps[PDO2].MinOperatingCurrent = PDO_CURR(1000);
-	tusb422_pd->port_config->snk_caps[PDO2].OperationalCurrent = PDO_CURR(1000);
-	tusb422_pd->port_config->snk_caps[PDO2].MaxOperatingPower = 0; /* N/A */
-	tusb422_pd->port_config->snk_caps[PDO2].MinOperatingPower = 0; /* N/A */
-	tusb422_pd->port_config->snk_caps[PDO2].OperationalPower = 0;  /* N/A */
+	if (of_property_read_bool(of_node, "ti,externally_powered"))
+		tusb422_pd->port_config->externally_powered = true;
 
-	tusb422_pd->port_config->higher_capability = false;
-	tusb422_pd->port_config->giveback_flag = false;    
-	tusb422_pd->port_config->no_usb_suspend = true;
-	tusb422_pd->port_config->fast_role_support = FAST_ROLE_NOT_SUPPORTED;
-	tusb422_pd->port_config->priority = PRIORITY_VOLTAGE;
+	if (of_property_read_bool(of_node, "ti,dual_role_data"))
+		tusb422_pd->port_config->dual_role_data = true;
 
-	ret = of_property_read_u32(of_node, "ti,supply-type",
-				   &supply_type);
-	if (ret) {
-		printk("%s: ret is %i\n", __func__, ret);
-		return ret;
-	}
-printk("%s: Supply type is %i\n", __func__, supply_type);
-	ret = of_property_read_u32(of_node, "ti,min-voltage",
-				   &min_volt);
+	if (of_property_read_bool(of_node, "ti,unchunked_msg_support"))
+		tusb422_pd->port_config->unchunked_msg_support = true;
+
+	if (of_property_read_bool(of_node, "ti,higher_capability"))
+		tusb422_pd->port_config->higher_capability = true;
+
+	if (of_property_read_bool(of_node, "ti,giveback_flag"))
+		tusb422_pd->port_config->giveback_flag = true;
+
+	if (of_property_read_bool(of_node, "ti,no_usb_suspend"))
+		tusb422_pd->port_config->no_usb_suspend = true;
+
+	ret = of_property_read_u16(of_node, "ti,src_settling_time_ms",
+			&tusb422_pd->port_config->src_settling_time_ms);
 	if (ret)
-		return ret;
-printk("%s: Min Volt is %i\n", __func__, min_volt);
-	ret = of_property_read_u32(of_node, "ti,max-voltage",
-				   &max_volt);
-	if (ret)
-		return ret;
-printk("%s: Max Volt is %i\n", __func__, max_volt);
-	switch (supply_type) {
-	case SUPPLY_TYPE_BATTERY:
-/*MaxPower
-MaxOperatingPower
-MinOperatingPower
-OperationalPower*/
+		printk("%s: Missing src_settling_time_ms\n", __func__);
 
-		break;
-	case SUPPLY_TYPE_FIXED:
-/*PeakI
-MaxI
-MaxOperatingCurrent
-MinOperatingCurrent
-OperationalCurrent*/
-		break;
-	case SUPPLY_TYPE_VARIABLE:
-/*PeakI
-MaxI
-MaxOperatingCurrent
-MinOperatingCurrent
-OperationalCurrent*/
-		break;
-	default:
-		return -ENODEV;
-		break;
+	ret = of_property_read_u16(of_node, "ti,fast_role_support",
+			&tusb422_pd->port_config->fast_role_support);
+	if (ret)
+		printk("%s: Missing fast_role_support\n", __func__);
+
+	ret = of_property_read_u16(of_node, "ti,priority",
+			&tusb422_pd->port_config->priority);
+	if (ret)
+		printk("%s: Missing priority\n", __func__);
+
+
+	for_each_child_of_node(of_node, pp) {
+		ret = of_property_read_u32(pp, "ti,current-flow",
+					   &current_flow);
+		if (ret)
+			return ret;
+
+		ret = of_property_read_u32(pp, "ti,supply-type",
+					   &supply_type);
+		if (ret)
+			return ret;
+
+		ret = of_property_read_u32(pp, "ti,min-voltage",
+					   &min_volt);
+		if (ret)
+			return ret;
+		ret = of_property_read_u32(pp, "ti,max-voltage",
+					   &max_volt);
+		if (ret)
+			return ret;
+	
+		ret = of_property_read_u32(pp, "ti,pdo_number",
+					   &pdo);
+		if (ret)
+			return ret;
+
+		switch (supply_type) {
+		case SUPPLY_TYPE_BATTERY:
+			ret = of_property_read_u32(pp, "ti,peak_current",
+						   &peak_current);
+			if (ret)
+				return ret;
+
+			if (current_flow == 0) {
+				num_of_src++;
+				ret = of_property_read_u32(pp, "ti,max_power",
+							   &max_power);
+				if (ret)
+					return ret;
+
+				tusb422_pd->port_config->src_caps[pdo].MaxPower = max_power; /* N/A */
+			} else if (current_flow == 1) {
+				num_of_sink++;
+			} else {
+				printk("%s: Undefined current flow\n", __func__);
+			}
+	
+	/*MaxPower
+	MaxOperatingPower
+	MinOperatingPower
+	OperationalPower*/
+
+			break;
+		case SUPPLY_TYPE_FIXED:
+			ret = of_property_read_u32(pp, "ti,peak_current",
+						   &peak_current);
+			if (ret)
+				printk("%s: Missing peak current\n", __func__);
+
+			if (current_flow == 0) {
+				num_of_src++;
+				ret = of_property_read_u32(pp, "ti,max_current",
+							   &max_current);
+				if (ret)
+					printk("%s: Missing max current\n", __func__);
+
+				tusb422_pd->port_config->src_caps[pdo].SupplyType = supply_type;
+				tusb422_pd->port_config->src_caps[pdo].PeakI = peak_current;
+				tusb422_pd->port_config->src_caps[pdo].MinV = PDO_VOLT(min_volt);
+				tusb422_pd->port_config->src_caps[pdo].MaxV = PDO_VOLT(max_volt);
+				tusb422_pd->port_config->src_caps[pdo].MaxI = PDO_CURR(max_current);
+
+			} else if (current_flow == 1) {
+				num_of_sink++;
+
+				ret = of_property_read_u32(pp, "ti,max-operating-curr",
+							   &max_current);
+				if (ret)
+					printk("%s: Missing max op current\n", __func__);
+
+				ret = of_property_read_u32(pp, "ti,min-operating-curr",
+							   &min_current);
+				if (ret)
+					printk("%s: Missing min op current\n", __func__);
+
+				ret = of_property_read_u32(pp, "ti,operational-curr",
+							   &op_current);
+				if (ret)
+					printk("%s: Missing op_curr\n", __func__);
+
+				ret = of_property_read_u32(pp, "ti,operational-pwr",
+							   &op_power);
+				if (ret)
+					printk("%s: Missing op_power\n", __func__);
+
+				tusb422_pd->port_config->snk_caps[pdo].SupplyType = supply_type;
+				tusb422_pd->port_config->snk_caps[pdo].PeakI = peak_current;      
+				tusb422_pd->port_config->snk_caps[pdo].MinV = PDO_VOLT(min_volt);
+				tusb422_pd->port_config->snk_caps[pdo].MaxV = PDO_VOLT(max_volt);
+				tusb422_pd->port_config->snk_caps[pdo].MaxOperatingCurrent = PDO_CURR(max_current);
+				tusb422_pd->port_config->snk_caps[pdo].MinOperatingCurrent = PDO_CURR(min_current);
+				tusb422_pd->port_config->snk_caps[pdo].OperationalCurrent = PDO_CURR(op_current);
+				tusb422_pd->port_config->snk_caps[pdo].MaxOperatingPower = 0; /* N/A */
+				tusb422_pd->port_config->snk_caps[pdo].MinOperatingPower = 0; /* N/A */
+				tusb422_pd->port_config->snk_caps[pdo].OperationalPower = op_power;  /* N/A */
+			} else {
+				printk("%s: Undefined current flow\n", __func__);
+			}
+
+			break;
+		case SUPPLY_TYPE_VARIABLE:
+	/*PeakI
+	MaxI
+	MaxOperatingCurrent
+	MinOperatingCurrent
+	OperationalCurrent*/
+			break;
+		default:
+			return -ENODEV;
+			break;
+		};
 	};
+
+	tusb422_pd->port_config->num_snk_pdos = num_of_sink;
+	tusb422_pd->port_config->num_src_pdos = num_of_src;
 
 	usb_pd_init(tusb422_pd->port_config);
 
@@ -492,8 +556,6 @@ OperationalCurrent*/
 static enum hrtimer_restart tusb422_timer_tasklet(struct hrtimer *hrtimer)
 {
 	struct tusb422_pwr_delivery *tusb422_pwr = container_of(hrtimer, struct tusb422_pwr_delivery, timer);
-
-	printk("%s: call timer call back\n", __func__);
 
 	printk("%s: call back 0x%pF\n", __func__, tusb422_pwr->call_back);
 	tusb422_pwr->call_back(0);
