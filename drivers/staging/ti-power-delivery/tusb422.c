@@ -56,27 +56,43 @@ void tusb422_send_fast_role_swap(unsigned int port)
     return;
 }
 
+
+uint8_t tusb422_get_revision(unsigned int port)
+{
+    uint8_t rev;
+
+    tcpc_write8(port, 0xFF, 1);  /* Page 1 */
+    tcpc_read8(port, 0xC0, &rev);
+    tcpc_write8(port, 0xFF, 0);  /* Page 0 */
+
+    return rev;
+}
+
+
 #define OTSD1_EN_BIT  1
+#define EFUSE_REG_E7_TRIMMED_BIT  (1 << 7)
 
 void tusb422_init(unsigned int port)
 {
-//    // BQ - for test.
-//    tcpc_write8(port, TUSB422_REG_CC_CTRL, 0x20);
-//    msleep(5);
-//    tcpc_write8(port, TUSB422_REG_CC_CTRL, 0x40);
-//    msleep(5);
-    INFO("422 init\n");
-    // BQ - trim for initial samples only.
-    tcpc_write8(port, 0xFF, 1);
-    tcpc_write8(port, 0xE0, 0xC0);  /* write 0xC4 to set I2C address to 0x24 */
-    tcpc_write8(port, 0xE1, 0x8);
-    tcpc_write8(port, 0xE2, 0x20);
-    tcpc_write8(port, 0xE3, 0x80);
-    tcpc_write8(port, 0xE4, 0x98);
-    tcpc_write8(port, 0xE5, 0x1A);
-    tcpc_write8(port, 0xE6, 0x80);
-    tcpc_write8(port, 0xE7, 0x70);
-    tcpc_write8(port, 0xFF, 0);
+    //******** TRIM for pre-production samples  **********//
+    uint8_t efuse;
+
+    tcpc_write8(port, 0xFF, 1);   /* Page 1 */
+    tcpc_read8(port, 0xE7, &efuse);
+    if (!(efuse & EFUSE_REG_E7_TRIMMED_BIT))
+    {
+        // Write TRIM values.
+        tcpc_write8(port, 0xE0, 0xC0);
+        tcpc_write8(port, 0xE1, 0x8);
+        tcpc_write8(port, 0xE2, 0x20);
+        tcpc_write8(port, 0xE3, 0x80);
+        tcpc_write8(port, 0xE4, 0x98);
+        tcpc_write8(port, 0xE5, 0x1A);
+        tcpc_write8(port, 0xE6, 0x80);
+        tcpc_write8(port, 0xE7, 0x70);
+    }
+    tcpc_write8(port, 0xFF, 0);  /* Page 0 */
+    //****************************************************//
 
     // Enable OTSD1.
     tcpc_write8(port, TUSB422_REG_OTSD_CTRL, OTSD1_EN_BIT);

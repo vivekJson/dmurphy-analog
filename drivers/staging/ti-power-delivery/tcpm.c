@@ -27,6 +27,9 @@
 
 static tcpc_device_t tcpc_dev[NUM_TCPC_DEVICES];
 
+static bool vbus_timed_out;
+
+
 #ifdef LED_DEBUG
 #define BLINK_DELAY_MS  250
 static timer_t timer_led_blink;
@@ -37,6 +40,7 @@ static timer_t timer_led_blink;
 #define T_DRP_TRY_MS         130    /*  75 - 150 ms */
 #define T_ERROR_RECOVERY_MS  500    /*  25 - ?? ms */
 
+#define T_VBUS_DISCHARGE_MS  600    /* based on TUSB422 HW timeout for discharge ~583ms */
 
 static void (*conn_state_change_cbk)(unsigned int port, tcpc_state_t state) = NULL;
 static void (*current_change_cbk)(unsigned int port, tcpc_cc_snk_state_t state) = NULL;
@@ -85,6 +89,12 @@ void tcpm_dump_state(unsigned int port)
 */
     return;
 }
+
+static void timeout_vbus(unsigned int port)
+{
+    vbus_timed_out = true;
+}
+
 
 #ifdef LED_DEBUG
 
@@ -450,7 +460,7 @@ static void timeout_cc_debounce(unsigned int port)
     unsigned int cc1, cc2;
     tcpc_device_t *dev = &tcpc_dev[port];
 
-    DEBUG("timeout_cc_debounce %i\n", dev->cc_status);
+    INFO("timeout_cc_debounce\n");
 
 //    non_reentrant_context_save();
 //
@@ -801,13 +811,27 @@ void tcpm_get_msg_header_type(unsigned int port, uint8_t *frame_type, uint16_t *
 }
 
 #if 0  // Use this funcion if using an I2C read transfer instead of SMBus block read.
-void tcpm_read_message(unsigned int port, uint8_t *buf)
+void tcpm_read_message(unsigned int port, uint8_t *buf, uint8_t len)
 {
     uint8_t i;
     uint8_t byte_cnt;
 
     // Read Rx Byte Cnt.
     tcpc_read8(port, TCPC_REG_RX_BYTE_CNT, &byte_cnt);
+
+    if (tcpc_dev[port].silicon_revision == 0)
+    {
+        if (byte_cnt == 0)
+        {
+            CRIT("\n## ERROR: tcpm_read_msg: zero byte cnt!\n\n");
+        }
+
+        if (byte_cnt != (len + 3))
+        {
+            CRIT("RxByteCnt = %u invalid, using length %u from header!\n", byte_cnt, len);
+            byte_cnt = len + 3;
+        }
+    }
 
     if (byte_cnt > 3)
     {
@@ -830,7 +854,7 @@ void tcpm_read_message(unsigned int port, uint8_t *buf)
     return;
 }
 #else
-void tcpm_read_message(unsigned int port, uint8_t *buf)
+void tcpm_read_message(unsigned int port, uint8_t *buf, uint8_t len)
 {
     uint8_t i;
     uint8_t byte_cnt;
@@ -839,10 +863,18 @@ void tcpm_read_message(unsigned int port, uint8_t *buf)
     // Read Rx Byte Cnt.
     tcpc_read8(port, TCPC_REG_RX_BYTE_CNT, &byte_cnt);
 
-    if (byte_cnt == 0)
+    if (tcpc_dev[port].silicon_revision == 0)
     {
-        CRIT("\n## ERROR: tcpm_read_msg: zero byte cnt!\n\n");
-        while(1);
+        if (byte_cnt == 0)
+        {
+            CRIT("\n## ERROR: tcpm_read_msg: zero byte cnt!\n\n");
+        }
+
+        if (byte_cnt != (len + 3))
+        {
+            CRIT("RxByteCnt = %u invalid, using length %u from header!\n", byte_cnt, len);
+            byte_cnt = len + 3;
+        }
     }
 
     if (byte_cnt > 3)
@@ -939,41 +971,36 @@ void tcpm_connection_state_machine(unsigned int port)
         case TCPC_STATE_UNATTACHED_SRC:
             timer_cancel(&dev->timer);
 
-#if 1
-            /****** TUSB422 PG1.0 workaround for Tx Discarded issue (CDDS #38).  ******/
-            tcpc_read8(port, TCPC_REG_MSG_HDR_INFO, &reg);
-
-            if (reg & POWER_ROLE_BIT)
-            {
-                // Clear message header info.
-                tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);     
-            }
-            else
-            {
-                // Remove CC1 & CC2 terminations.
-                tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
-                            tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_OPEN, CC_OPEN));
-
-                tcpc_read8(port, TCPC_REG_POWER_CTRL, &reg);
-                if (reg & TCPC_PWR_CTRL_VBUS_VOLTAGE_MONITOR)
+            if (dev->silicon_revision == 0)
+            {            
+                /****** TUSB422 PG1.0 workaround for Tx Discarded issue (CDDS #38).  ******/
+                tcpc_read8(port, TCPC_REG_MSG_HDR_INFO, &reg);
+                
+                if (reg & POWER_ROLE_BIT)
                 {
-                    CRIT("### voltage mon disabled!\n");
-
-                    // Enable VBUS detection.
-                    tcpm_enable_voltage_monitoring(dev->port);
+                    // Clear message header info.
+                    tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);     
                 }
-                               
-                // Wait for vSafe0V.
-                while ((tcpm_read_vbus_voltage(dev->port) > VSAFE0V_MAX)/* &&
-                       !vbus_timed_out*/);
+                else
+                {
+                    // Remove CC1 & CC2 terminations.
+                    tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+                                tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_OPEN, CC_OPEN));
+                
+                    // Enable Voltage monitoring.
+                    tcpm_enable_voltage_monitoring(dev->port);
 
-                // Clear message header info.
-                tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);     
+                    vbus_timed_out = false;
+                    timer_start(&dev->timer, T_VBUS_DISCHARGE_MS, timeout_vbus);
+
+                    // Wait for vSafe0V.
+                    while ((tcpm_read_vbus_voltage(dev->port) > VSAFE0V_MAX) &&
+                           !vbus_timed_out);
+                
+                    // Clear message header info.
+                    tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);     
+                }
             }
-            /***********************************************************************/
-#endif
-//            // Clear message header info.
-//            tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);     
 
             // Disable VBUS.
             tcpm_src_vbus_disable(port);
@@ -1151,14 +1178,16 @@ void tcpm_connection_state_machine(unsigned int port)
 
         case TCPC_STATE_TRY_SRC:
         case TCPC_STATE_TRY_SNK:
-            /****** TUSB422 PG1.0 workaround for role change issue (CDDS #41).  ******/
-            // Disable VBUS detect.
-            tcpc_write8(port, TCPC_REG_COMMAND, TCPC_CMD_DISABLE_VBUS_DETECT);
+            if (dev->silicon_revision == 0)
+            {
+                /****** TUSB422 PG1.0 workaround for role change issue (CDDS #41).  ******/
+                // Disable VBUS detect.
+                tcpc_write8(port, TCPC_REG_COMMAND, TCPC_CMD_DISABLE_VBUS_DETECT);
 
-            // Remove CC1 & CC2 terminations.
-            tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
-                        tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_OPEN, CC_OPEN));
-            /***********************************************************************/
+                // Remove CC1 & CC2 terminations.
+                tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+                            tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_OPEN, CC_OPEN));
+            }
 
             // Try.SRC - Both CC1 and CC2 pulled to Rp.
             // Try.SNK - Both CC1 and CC2 terminated to Rd.
@@ -1650,6 +1679,9 @@ void tcpm_port_init(unsigned int port, const tcpc_config_t *config)
 
     // Init vendor-specific.
     tusb422_init(port);
+
+    // Read the silicon revision.
+    dev->silicon_revision = tusb422_get_revision(port);
 
     return;
 }

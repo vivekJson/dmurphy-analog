@@ -80,6 +80,8 @@ void usb_pd_prl_reset(unsigned int port)
         pd[port].stored_msg_id[i] = MSG_ID_CLEARED;
     }
 
+    pd[port].non_interruptable_ams = false;
+
     tcpm_enable_pd_receive(port);
 
     return;
@@ -152,6 +154,8 @@ void usb_pd_prl_receive_alert_handler(unsigned int port)
         dev->msg_id[sop] = 0;
         dev->stored_msg_id[sop] = MSG_ID_CLEARED;
 
+        dev->non_interruptable_ams = false;
+
         usb_pd_pe_notify(port, PRL_ALERT_MSG_RECEIVED);
     }
     else
@@ -165,7 +169,7 @@ void usb_pd_prl_receive_alert_handler(unsigned int port)
             // Store message ID.
             dev->stored_msg_id[sop] = msg_id;
 
-            tcpm_read_message(port, pd[port].rx_msg_buf);
+            tcpm_read_message(port, pd[port].rx_msg_buf, dev->rx_msg_data_len);
 
             usb_pd_pe_notify(port, PRL_ALERT_MSG_RECEIVED);
         }
@@ -182,6 +186,7 @@ void usb_pd_prl_receive_alert_handler(unsigned int port)
 void usb_pd_prl_hard_reset_alert_handler(unsigned int port)
 {
     usb_pd_pe_notify(port, PRL_ALERT_HARD_RESET_RECEIVED);
+    return;
 }
 
 
@@ -201,19 +206,21 @@ static void usb_pd_prl_tx_msg(unsigned int port, uint8_t *buf, tcpc_transmit_t s
 
 void usb_pd_prl_tx_ctrl_msg(unsigned int port, uint8_t *buf, msg_hdr_ctrl_msg_type_t msg_type, tcpc_transmit_t sop_type)
 {
-    DEBUG("Tx msg_type: %u (%s), sop: %u\n", msg_type, ctrlmsg2string[msg_type], sop_type);
+    DEBUG("Tx ctrl msg_type: %u (%s), sop: %u\n", msg_type, ctrlmsg2string[msg_type], sop_type);
 
     buf[0] = 2; /* Tx byte cnt */ 
     buf[1] = USB_PD_HDR_GEN_BYTE0(pd[port].data_role, msg_type);
     buf[2] = USB_PD_HDR_GEN_BYTE1(0, 0, pd[port].msg_id[sop_type], pd[port].power_role);
 
-    INFO("buf[0-2]: 0x%02x %02x %02x\n", buf[0], buf[1], buf[2]);
+    DEBUG("buf[0-2]: 0x%02x %02x %02x\n", buf[0], buf[1], buf[2]);
 
     if (msg_type == CTRL_MSG_TYPE_SOFT_RESET)
     {
         // Reset message ID counter.
         pd[port].msg_id[sop_type] = 0;
         pd[port].stored_msg_id[sop_type] = MSG_ID_CLEARED;
+
+        pd[port].non_interruptable_ams = false;
     }
 
     usb_pd_prl_tx_msg(port, buf, sop_type);
@@ -223,13 +230,13 @@ void usb_pd_prl_tx_ctrl_msg(unsigned int port, uint8_t *buf, msg_hdr_ctrl_msg_ty
 
 void usb_pd_prl_tx_data_msg(unsigned int port, uint8_t *buf, msg_hdr_data_msg_type_t msg_type, tcpc_transmit_t sop_type, unsigned int ndo)
 {
-    DEBUG("Tx msg_type: %u (%s), sop: %u, ndo: %u\n", msg_type, datamsg2string[msg_type], sop_type, ndo);
+    DEBUG("Tx data msg_type: %u (%s), sop: %u, ndo: %u\n", msg_type, datamsg2string[msg_type], sop_type, ndo);
 
     buf[0] = (ndo << 2) + 2; // Each data object is 4-bytes plus 2-byte header.
     buf[1] = USB_PD_HDR_GEN_BYTE0(pd[port].data_role, msg_type);
     buf[2] = USB_PD_HDR_GEN_BYTE1(0, ndo, pd[port].msg_id[sop_type], pd[port].power_role);
 
-    INFO("buf[0-2]: 0x%02x %02x %02x\n", buf[0], buf[1], buf[2]);
+    DEBUG("buf[0-2]: 0x%02x %02x %02x\n", buf[0], buf[1], buf[2]);
 
     usb_pd_prl_tx_msg(port, buf, sop_type);
 

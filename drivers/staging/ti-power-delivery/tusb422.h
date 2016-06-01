@@ -94,6 +94,8 @@ void tusb422_isr(unsigned int port);
 void tusb422_lfo_timer_start(struct tusb422_timer_t *timer, int timeout_ms, void (*function)(unsigned int));
 void tusb422_lfo_timer_cancel(struct tusb422_timer_t *timer);
 
+uint8_t tusb422_get_revision(unsigned int port);
+
 void tusb422_fast_role_swap_detect_ctrl(unsigned int port, bool enable);
 
 void tusb422_send_fast_role_swap(unsigned int port);

@@ -104,6 +104,7 @@ typedef struct
     plug_polarity_t    plug_polarity;
 //    uint8_t            cc1_state;
 //    uint8_t            cc2_state;
+    uint8_t            silicon_revision;
 } tcpc_device_t;
 
 typedef struct
@@ -153,7 +154,7 @@ typedef struct
 void tcpm_register_callbacks(const tcpm_callbacks_t *callbacks);
 
 void tcpm_get_msg_header_type(unsigned int port, uint8_t *frame_type, uint16_t *header);
-void tcpm_read_message(unsigned int port, uint8_t *buf);
+void tcpm_read_message(unsigned int port, uint8_t *buf, uint8_t len);
 void tcpm_transmit(unsigned int port, uint8_t *buf, tcpc_transmit_t sop_type);
 
 void tcpm_enable_pd_receive(unsigned int port);
