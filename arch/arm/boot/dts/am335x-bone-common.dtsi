@@ -85,12 +85,12 @@
 		pinctrl-single,pins = <
 			0x158 (PIN_INPUT_PULLUP | MUX_MODE2) 	/* spi0_d1.i2c1_sda */
 			0x15c (PIN_INPUT_PULLUP | MUX_MODE2)	/* spi0_cs0.i2c1_scl */
-			0x78 0x17 /* gpio1_28 OUTPUT_PULLUP | MODE7 */
 			0x40 (PIN_INPUT | MUX_MODE7) 	/* gpio1_16 alert*/
-			0x44 (PIN_INPUT | MUX_MODE7) 	/* gpio1_17 vbus_snk */
+			0x44 (PIN_OUTPUT | MUX_MODE7) 	/* gpio1_17  hv */
+			0x78 (PIN_OUTPUT | MUX_MODE7) /* gpio1_28 OUTPUT_PULLUP | MODE7 vbus_snk */
 			0x1a4 ( PIN_OUTPUT | MUX_MODE7 ) /* (C13) mcasp0_fsr.gpio3[19] vbus_src */
 			0x1ac ( PIN_OUTPUT | MUX_MODE7 ) /* (A14) mcasp0_ahclkx.gpio3[21] vconn_en*/
-			0x164 ( PIN_OUTPUT | MUX_MODE7 ) /* (C18) eCAP0_in_PWM0_out.gpio0[7] 4v gpio*/
+			0x164 ( PIN_OUTPUT | MUX_MODE7 ) /* (C18) eCAP0_in_PWM0_out.gpio0[7] 5v gpio*/
 		>;
 	};
 
@@ -271,15 +271,82 @@
 	usb_power_dev: usb_power_dev@20 {
 		compatible = "ti,tusb422-usb-pd";
 		reg = <0x20>;
-		ti,supply-type = <1>;
-		ti,min-voltage = <3200>;
-		ti,max-voltage = <5000>;
 		ti,alert-gpio = <&gpio1 16 GPIO_ACTIVE_HIGH>;
 		ti,vbus-snk-gpio = <&gpio1 28 GPIO_ACTIVE_HIGH>;
 		ti,vbus-src-gpio = <&gpio3 21 GPIO_ACTIVE_HIGH>;
 		ti,vconn-en-gpio = <&gpio3 19 GPIO_ACTIVE_HIGH>;
 		ti,vbus-hv-gpio = <&gpio1 17 GPIO_ACTIVE_HIGH>;
 		ti,vbus-5v-gpio = <&gpio0 7 GPIO_ACTIVE_HIGH>;
+
+		/* Port Config See the tusb422_common.h */
+		ti,usb_comm_capable;
+		ti,no_usb_suspend;
+		/* Uncomment the below tags to make them true for the driver
+		 * otherwise they are false */
+		/* ti,usb_suspend_supported;
+		ti,externally_powered;
+		ti,dual_role_data;
+		ti,unchunked_msg_support;
+		ti,higher_capability;
+		ti,giveback_flag; */
+
+		ti,src_settling_time_ms = <50>;
+		ti,fast_role_support = <0>;
+		ti,priority = <0>;
+
+
+		source@1 {
+			ti,current-flow = <0>; /* 0 for source 1 for sink */
+			ti,supply-type = <0>;
+			ti,pdo_number = <0>;
+			ti,min-voltage = <5000>;
+			ti,max-voltage = <0>;
+			ti,peak_current = <0>;
+			ti,max_current = <3000>;
+			ti,max_power = <0>;
+		};
+
+		source@2 {
+			ti,current-flow = <0>; /* 0 for source 1 for sink */
+			ti,supply-type = <0>;
+			ti,pdo_number = <1>;
+			ti,min-voltage = <15000>;
+			ti,max-voltage = <0>;
+			ti,peak_current = <0>;
+			ti,max_current = <3000>;
+			ti,max_power = <0>;
+		};
+
+		sink@1 {
+			ti,current-flow = <1>; /* 0 for source 1 for sink */
+			ti,supply-type = <0>;
+			ti,pdo_number = <0>;
+			ti,min-voltage = <5000>;
+			ti,max-voltage = <0>;
+			ti,max-operating-curr = <3000>;
+			ti,min-operating-curr = <900>;
+			ti,operational-curr = <900>;
+			ti,max-operating-pwr = <0>;
+			ti,min-operating-pwr = <0>;
+			ti,operational-pwr = <0>;
+			ti,peak_current = <0>;
+		};
+
+		sink@2 {
+			ti,current-flow = <1>; /* 0 for source 1 for sink */
+			ti,supply-type = <0>;
+			ti,pdo_number = <1>;
+			ti,min-voltage = <3200>;
+			ti,max-voltage = <5000>;
+			ti,max-operating-curr = <0>;
+			ti,min-operating-curr = <0>;
+			ti,operational-curr = <0>;
+			ti,max-operating-pwr = <0>;
+			ti,min-operating-pwr = <0>;
+			ti,operational-pwr = <0>;
+			ti,peak_current = <0>;
+		};
+
 	};
 };
 
