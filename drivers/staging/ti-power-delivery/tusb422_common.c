@@ -29,7 +29,6 @@ int8_t tcpc_read8(unsigned int port, uint8_t reg, uint8_t *data)
 int8_t tcpc_read16(unsigned int port, uint8_t reg, uint16_t *data)
 {
 	tusb422_read(reg, data, 2);
-	printk("%s: data 0x%X\n", __func__, *data);
 
 	return 0;
 };
@@ -37,7 +36,6 @@ int8_t tcpc_read16(unsigned int port, uint8_t reg, uint16_t *data)
 int8_t tcpc_read_block(unsigned int port, uint8_t reg, uint8_t *data,
 		       unsigned int len)
 {
-
 	return tusb422_read(reg, (int *) data, len);
 };
 

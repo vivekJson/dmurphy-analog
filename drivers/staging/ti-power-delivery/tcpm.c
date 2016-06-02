@@ -903,8 +903,8 @@ void tcpm_transmit(unsigned int port, uint8_t *buf, tcpc_transmit_t sop_type)
     {
         // Write Tx byte cnt, header, and buffer all together. 
         // (Add 1 to length since we are also writing byte cnt)
-//        tcpc_write_block(port, TCPC_REG_TX_BYTE_CNT, buf, buf[0] + 1);
-        tcpc_write_block(port, TCPC_REG_TX_BYTE_CNT, &buf[1], buf[0]);
+        tcpc_write_block(port, TCPC_REG_TX_BYTE_CNT, buf, buf[0] + 1);
+//        tcpc_write_block(port, TCPC_REG_TX_BYTE_CNT, &buf[1], buf[0]);
     }
 
     // Start transmit.

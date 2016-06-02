@@ -180,20 +180,6 @@ static const struct reg_default tusb422_reg_defs[] = {
 	{ TUSB422_FAULT_STATUS,0 },
 };
 
-int tusb422_modify_reg(int reg, int clr_mask, int set_mask)
-{
-	int mask;
-
-	if (clr_mask)
-		mask = ~clr_mask;
-	else
-		mask = set_mask;
-
-	printk("%s: reg 0x%X, clr 0x%X, set 0x%X\n", __func__, reg, clr_mask, set_mask);
-	regmap_update_bits(tusb422_pd->regmap, reg, 0xff, mask);
-	return 0;
-};
-
 int tusb422_write(int reg, int value, int num_of_regs)
 {
 	printk("%s:reg 0x%X, val 0x%X, num of regs %i\n", __func__, reg, value, num_of_regs);
@@ -207,6 +193,19 @@ int tusb422_read(int reg, int *value, int num_of_regs)
 	printk("%s: reg 0x%X, num of regs %i\n", __func__, reg, num_of_regs);
 	regmap_raw_read(tusb422_pd->regmap, reg, value, num_of_regs);
 	printk("%s: value 0x%X\n", __func__, (uint16_t) *value);
+	return 0;
+};
+
+int tusb422_modify_reg(int reg, int clr_mask, int set_mask)
+{
+	if (clr_mask) {
+		regmap_update_bits(tusb422_pd->regmap, reg, clr_mask, ~clr_mask);
+	} else if (set_mask) {
+		regmap_update_bits(tusb422_pd->regmap, reg, set_mask, set_mask);
+	} else {
+		tusb422_write(reg, 0x0, 1);
+	}
+
 	return 0;
 };
 
@@ -233,7 +232,6 @@ int tusb422_stop_timer(void)
 
 int tusb422_set_vbus(int vbus_sel)
 {
-	printk("%s: vBus %i\n", __func__, vbus_sel);
 	if (vbus_sel == VBUS_SRC_5V) {
 		/* Disable high voltage. */
 		gpiod_direction_output(tusb422_pd->vbus_hv_gpio, 0);
@@ -276,6 +274,8 @@ int tusb422_clr_vbus(int vbus_sel)
 
 static irqreturn_t tusb422_event_handler(int irq, void *private)
 {
+
+	printk("%s: Enter\n", __func__);
 	tcpm_alert_event(0);
 	tcpm_connection_task();
 	usb_pd_task();
@@ -299,7 +299,6 @@ static int tusb422_of_get_gpios(struct tusb422_pwr_delivery *tusb422_pd)
 	} else {
 		gpiod_direction_input(tusb422_pd->alert_gpio);
 		tusb422_pd->alert_irq = gpiod_to_irq(tusb422_pd->alert_gpio);
-		printk("%s: value %i,\n", __func__, tusb422_pd->alert_irq);
 	}
 
 	tusb422_pd->vbus_snk_gpio = devm_gpiod_get(tusb422_pd->dev, "ti,vbus-snk",
@@ -463,7 +462,7 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 				if (ret)
 					return ret;
 
-				tusb422_pd->port_config->src_caps[pdo].MaxPower = max_power; /* N/A */
+				tusb422_pd->port_config->src_caps[pdo].MaxPower = max_power;
 			} else if (current_flow == 1) {
 				num_of_sink++;
 			} else {
@@ -553,6 +552,7 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 
 	return 0;
 }
+
 static enum hrtimer_restart tusb422_timer_tasklet(struct hrtimer *hrtimer)
 {
 	struct tusb422_pwr_delivery *tusb422_pwr = container_of(hrtimer, struct tusb422_pwr_delivery, timer);
@@ -580,6 +580,7 @@ static int tusb422_set_config(struct tusb422_pwr_delivery *tusb422_pd)
 
 	tusb422_pd->configuration = devm_kzalloc(dev,
 			sizeof(*tusb422_pd->configuration), GFP_KERNEL);
+
 	if (!tusb422_pd->configuration)
 		return -ENOMEM;
 
@@ -623,7 +624,7 @@ static int tusb422_i2c_probe(struct i2c_client *client,
 		ret = devm_request_threaded_irq(&client->dev, tusb422_pd->alert_irq,
 			NULL,
 			tusb422_event_handler,
-			IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+			IRQF_TRIGGER_LOW | IRQF_ONESHOT,
 			"tusb422_event", tusb422_pd);
 		if (ret) {
 			dev_err(&client->dev, "unable to request IRQ\n");

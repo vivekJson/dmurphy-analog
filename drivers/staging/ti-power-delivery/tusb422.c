@@ -74,13 +74,12 @@ uint8_t tusb422_get_revision(unsigned int port)
 
 void tusb422_init(unsigned int port)
 {
-    //******** TRIM for pre-production samples  **********//
+    /******** TRIM for pre-production samples  **********/
     uint8_t efuse;
 
     tcpc_write8(port, 0xFF, 1);   /* Page 1 */
     tcpc_read8(port, 0xE7, &efuse);
-    if (!(efuse & EFUSE_REG_E7_TRIMMED_BIT))
-    {
+    if (!(efuse & EFUSE_REG_E7_TRIMMED_BIT)) {	
         // Write TRIM values.
         tcpc_write8(port, 0xE0, 0xC0);
         tcpc_write8(port, 0xE1, 0x8);
