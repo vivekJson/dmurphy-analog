@@ -293,7 +293,9 @@
 		ti,src_settling_time_ms = <50>;
 		ti,fast_role_support = <0>;
 		ti,priority = <0>;
-
+		ti,role = <2>;
+		ti,rp_val = <2>;
+		ti,flags = <0>;
 
 		source@1 {
 			ti,current-flow = <0>; /* 0 for source 1 for sink */
