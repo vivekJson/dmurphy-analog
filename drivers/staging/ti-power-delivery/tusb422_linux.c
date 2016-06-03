@@ -27,6 +27,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
+#include <linux/spinlock.h>
 
 #include "tusb422_common.h"
 
@@ -198,14 +199,7 @@ int tusb422_read(int reg, int *value, int num_of_regs)
 
 int tusb422_modify_reg(int reg, int clr_mask, int set_mask)
 {
-	if (clr_mask) {
-		regmap_update_bits(tusb422_pd->regmap, reg, clr_mask, ~clr_mask);
-	} else if (set_mask) {
-		regmap_update_bits(tusb422_pd->regmap, reg, set_mask, set_mask);
-	} else {
-		tusb422_write(reg, 0x0, 1);
-	}
-
+	regmap_update_bits(tusb422_pd->regmap, reg, (clr_mask | set_mask), set_mask);
 	return 0;
 };
 
@@ -216,6 +210,7 @@ void tusb422_set_timer_func(void (*function)(unsigned int))
 
 int tusb422_start_timer(unsigned int timeout_ms)
 {
+	printk("%s: Enter\n", __func__);
 	if (hrtimer_active(&tusb422_pd->timer))
 		return -1;
 
@@ -226,7 +221,9 @@ int tusb422_start_timer(unsigned int timeout_ms)
 
 int tusb422_stop_timer(void)
 {
+	printk("%s: Enter\n", __func__);
 	hrtimer_cancel(&tusb422_pd->timer);
+
 	return 0;
 };
 
@@ -274,8 +271,8 @@ int tusb422_clr_vbus(int vbus_sel)
 
 static irqreturn_t tusb422_event_handler(int irq, void *private)
 {
-
 	printk("%s: Enter\n", __func__);
+
 	tcpm_alert_event(0);
 	tcpm_connection_task();
 	usb_pd_task();
@@ -370,8 +367,8 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 	struct device_node *pp;
 	unsigned int supply_type;
 	unsigned int min_volt, current_flow, peak_current, pdo;
-	unsigned int max_volt, max_current, max_power;
-	unsigned int op_current, min_current, op_power;
+	unsigned int max_volt, max_current, max_power, fast_role_support;
+	unsigned int op_current, min_current, op_power, priority;
 	int ret;
 	int num_of_sink = 0, num_of_src = 0;
 
@@ -412,15 +409,18 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 	if (ret)
 		printk("%s: Missing src_settling_time_ms\n", __func__);
 
-	ret = of_property_read_u16(of_node, "ti,fast_role_support",
-			&tusb422_pd->port_config->fast_role_support);
+	ret = of_property_read_u32(of_node, "ti,fast_role_support",
+			&fast_role_support);
 	if (ret)
 		printk("%s: Missing fast_role_support\n", __func__);
+	else
+		tusb422_pd->port_config->fast_role_support = (fast_role_t) fast_role_support;
 
-	ret = of_property_read_u16(of_node, "ti,priority",
-			&tusb422_pd->port_config->priority);
+	ret = of_property_read_u32(of_node, "ti,priority", &priority);
 	if (ret)
 		printk("%s: Missing priority\n", __func__);
+	else
+		tusb422_pd->port_config->priority = (pdo_priority_t) priority;
 
 
 	for_each_child_of_node(of_node, pp) {
@@ -558,7 +558,10 @@ static enum hrtimer_restart tusb422_timer_tasklet(struct hrtimer *hrtimer)
 	struct tusb422_pwr_delivery *tusb422_pwr = container_of(hrtimer, struct tusb422_pwr_delivery, timer);
 
 	printk("%s: call back 0x%pF\n", __func__, tusb422_pwr->call_back);
+
 	tusb422_pwr->call_back(0);
+	/*tcpm_connection_task();
+	usb_pd_task();*/
 
 	return HRTIMER_NORESTART;
 }
@@ -575,8 +578,10 @@ static const struct regmap_config tusb422_regmap_config = {
 
 static int tusb422_set_config(struct tusb422_pwr_delivery *tusb422_pd)
 {
-
 	struct device *dev = tusb422_pd->dev;
+	struct device_node *of_node = tusb422_pd->dev->of_node;
+	unsigned int role, flags, rp_val;
+	int ret;
 
 	tusb422_pd->configuration = devm_kzalloc(dev,
 			sizeof(*tusb422_pd->configuration), GFP_KERNEL);
@@ -584,11 +589,24 @@ static int tusb422_set_config(struct tusb422_pwr_delivery *tusb422_pd)
 	if (!tusb422_pd->configuration)
 		return -ENOMEM;
 
-	tusb422_pd->configuration->role = ROLE_DRP;
-	tusb422_pd->configuration->flags = 0;
-	tusb422_pd->configuration->rp_val = RP_HIGH_CURRENT;
-	tusb422_pd->configuration->slave_addr = 0x20;
-	tusb422_pd->configuration->intf = SMBUS_MASTER0;
+
+	ret = of_property_read_u32(of_node, "ti,role", &role);
+	if (ret)
+		return ret;
+
+	ret = of_property_read_u32(of_node, "ti,rp_val", &rp_val);
+	if (ret)
+		return ret;
+
+	ret = of_property_read_u32(of_node, "ti,flags", &flags);
+	if (ret)
+		printk("%s: Missing ti,flags setting to 0\n", __func__);
+
+	tusb422_pd->configuration->role = (tc_role_t) role;
+	tusb422_pd->configuration->flags = (uint16_t) flags;
+	tusb422_pd->configuration->rp_val = (tcpc_role_rp_val_t) rp_val;
+	tusb422_pd->configuration->slave_addr = tusb422_pd->client->addr;
+	tusb422_pd->configuration->intf = tusb422_pd->client->adapter->nr;
 
 	tcpm_init(tusb422_pd->configuration);
 
@@ -633,6 +651,7 @@ static int tusb422_i2c_probe(struct i2c_client *client,
 	}
 
 	hrtimer_init(&tusb422_pd->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+
 	tusb422_pd->timer.function = tusb422_timer_tasklet;
 
 	ret = tusb422_of_init(tusb422_pd);
