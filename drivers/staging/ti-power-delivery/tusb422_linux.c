@@ -17,6 +17,7 @@
 
 #include <linux/module.h>
 #include <linux/i2c.h>
+#include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/regmap.h>
@@ -50,6 +51,7 @@ struct tusb422_pwr_delivery {
 	usb_pd_port_config_t *port_config;
 	int alert_irq;
 	int id;
+	int alert_status;
 };
 
 static struct tusb422_pwr_delivery *tusb422_pd;
@@ -273,9 +275,13 @@ static irqreturn_t tusb422_event_handler(int irq, void *private)
 {
 	printk("%s: Enter\n", __func__);
 
+	tusb422_pd->alert_status = 1;
+
 	tcpm_alert_event(0);
 	tcpm_connection_task();
 	usb_pd_task();
+
+	tusb422_pd->alert_status = 0;
 
 	return IRQ_HANDLED;
 };
@@ -556,12 +562,27 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 static enum hrtimer_restart tusb422_timer_tasklet(struct hrtimer *hrtimer)
 {
 	struct tusb422_pwr_delivery *tusb422_pwr = container_of(hrtimer, struct tusb422_pwr_delivery, timer);
+	int i;
 
 	printk("%s: call back 0x%pF\n", __func__, tusb422_pwr->call_back);
+	printk("%s: alert_status %i\n", __func__, tusb422_pwr->alert_status);
+	/* Wait for the alert interrupt state machine to complete */
+	if (tusb422_pwr->alert_status) {
+		for(i = 0; i <= 20; i++) {
+			msleep(100);
+			printk("%s: alert_status %i\n", __func__, tusb422_pwr->alert_status);
+			if (tusb422_pwr->alert_status == 0)
+				break;
+		}
+	}
+
+	disable_irq(tusb422_pwr->alert_irq);
 
 	tusb422_pwr->call_back(0);
 	/*tcpm_connection_task();
 	usb_pd_task();*/
+
+	enable_irq(tusb422_pwr->alert_irq);
 
 	return HRTIMER_NORESTART;
 }
