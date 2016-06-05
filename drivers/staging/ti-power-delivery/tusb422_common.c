@@ -28,9 +28,7 @@ int8_t tcpc_read8(unsigned int port, uint8_t reg, uint8_t *data)
 
 int8_t tcpc_read16(unsigned int port, uint8_t reg, uint16_t *data)
 {
-	tusb422_read(reg, (int *) data, 2);
-
-	return 0;
+	return tusb422_read(reg, (int *) data, 2);;
 };
 
 int8_t tcpc_read_block(unsigned int port, uint8_t reg, uint8_t *data,
@@ -71,7 +69,6 @@ void tcpc_modify8(unsigned int port,
 	printk("%s: enter \n", __func__);
 
 	tusb422_modify_reg(reg, clr_mask, set_mask);
-	return;
 };
 
 // Modifies an 16-bit register.
@@ -81,7 +78,6 @@ void tcpc_modify16(unsigned int port,
                   uint16_t set_mask)
 {
 	tusb422_modify_reg(reg, clr_mask, set_mask);
-	return;
 };
 
 int timer_start(struct tusb422_timer_t *timer,
@@ -99,21 +95,18 @@ void timer_cancel(struct tusb422_timer_t *timer)
 {
 	printk("%s: Enter\n", __func__);
 	tusb422_stop_timer();
-	return;
 };
 
 void tcpm_hal_vbus_enable(uint8_t port, enum vbus_select_t sel)
 {
 	printk("%s: Enter\n", __func__);
 	tusb422_set_vbus((int) sel);
-	return;
 };
 
 void tcpm_hal_vbus_disable(uint8_t port, enum vbus_select_t sel)
 {
 	printk("%s: Enter\n", __func__);
 	tusb422_clr_vbus((int) sel);
-	return;
 };
 
 void tcpc_config(unsigned int port, smbus_interface_t intf, uint8_t slave_addr)

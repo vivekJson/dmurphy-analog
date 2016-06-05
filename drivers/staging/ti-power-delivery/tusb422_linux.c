@@ -607,11 +607,8 @@ static void tusb422_work(struct work_struct *work)
 	}
 
 	disable_irq(tusb422_pwr->alert_irq);
-
-	tusb422_pwr->call_back(0);
 	tcpm_connection_task();
 	usb_pd_task();
-
 	enable_irq(tusb422_pwr->alert_irq);
 };
 
@@ -657,9 +654,9 @@ static int tusb422_set_config(struct tusb422_pwr_delivery *tusb422_pd)
 	tusb422_pd->configuration->slave_addr = tusb422_pd->client->addr;
 	tusb422_pd->configuration->intf = tusb422_pd->client->adapter->nr;
 
-	tcpm_init(tusb422_pd->configuration);
+	ret = tcpm_init(tusb422_pd->configuration);
 
-	return 0;
+	return ret;
 };
 
 static int tusb422_i2c_probe(struct i2c_client *client,
@@ -706,10 +703,14 @@ static int tusb422_i2c_probe(struct i2c_client *client,
 
 	ret = tusb422_of_init(tusb422_pd);
 	ret = tusb422_set_config(tusb422_pd);
+	if (ret) {
+		dev_err(&client->dev, "%s: No TUSB422 found\n", __func__);
+		ret = -ENODEV;
+		goto no_dev;
+	}
 
 	tcpm_alert_event(0);
-	tcpm_connection_task();
-	usb_pd_task();
+	schedule_work(&tusb422_pd->work);
 
 #ifdef TUSB422_DEBUG
 	ret = sysfs_create_group(&client->dev.kobj, &tusb422_attr_group);
@@ -717,6 +718,19 @@ static int tusb422_i2c_probe(struct i2c_client *client,
 		dev_err(&client->dev, "Failed to create sysfs: %d\n", ret);
 #endif
 	return ret;
+
+no_dev:
+	cancel_work_sync(&tusb422_pd->work);
+	return ret;
+};
+
+static int tusb422_remove(struct i2c_client *client)
+{
+	cancel_work_sync(&tusb422_pd->work);
+#ifdef TUSB422_DEBUG
+	sysfs_remove_group(&client->dev.kobj, &tusb422_attr_group);
+#endif
+	return 0;
 };
 
 static const struct i2c_device_id tusb422_id[] = {
@@ -740,6 +754,7 @@ static struct i2c_driver tusb422_i2c_driver = {
 		.of_match_table = of_match_ptr(tusb422_pd_ids),
 	},
 	.probe = tusb422_i2c_probe,
+	.remove = tusb422_remove,
 	.id_table = tusb422_id,
 };
 module_i2c_driver(tusb422_i2c_driver);

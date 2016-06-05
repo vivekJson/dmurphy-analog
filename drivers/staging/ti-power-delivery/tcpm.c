@@ -1623,7 +1623,7 @@ static void tcpm_alert_handler(unsigned int port)
 }
 
 
-void tcpm_port_init(unsigned int port, const tcpc_config_t *config)
+int tcpm_port_init(unsigned int port, const tcpc_config_t *config)
 {
     tcpc_device_t *dev = &tcpc_dev[port];
     uint8_t pwr_status;
@@ -1659,12 +1659,11 @@ void tcpm_port_init(unsigned int port, const tcpc_config_t *config)
 
     // Read VID/PID/DID.
     tcpc_read16(port, TCPC_REG_VENDOR_ID, &id);
-    CRIT("VID: 0x%04x\n", id); 
     if (id != 0x0451)
-    {
-        // Non-TI device.
-        while(1);
-    }
+	return 1;
+
+    CRIT("VID: 0x%04x\n", id); 
+
     tcpc_read16(port, TCPC_REG_PRODUCT_ID, &id);
     CRIT("PID: 0x%04x\n", id); 
     tcpc_read16(port, TCPC_REG_DEVICE_ID, &id);
@@ -1683,12 +1682,13 @@ void tcpm_port_init(unsigned int port, const tcpc_config_t *config)
     // Read the silicon revision.
     dev->silicon_revision = tusb422_get_revision(port);
 
-    return;
+    return 0;
 }
 
-void tcpm_init(const tcpc_config_t *config)
+int tcpm_init(const tcpc_config_t *config)
 {
     unsigned int port;
+    int ret;
 
 /* Dan M this needs to be looked at I am sure we don't need this
 * init function
@@ -1701,10 +1701,12 @@ void tcpm_init(const tcpc_config_t *config)
     // Init all TCPC devices.
     for (port = 0; port < NUM_TCPC_DEVICES; port++)
     {
-        tcpm_port_init(port, &config[port]);
+        ret = tcpm_port_init(port, &config[port]);
+	if (ret)
+		break;
     }
 
-    return;
+    return ret;
 }
 
 

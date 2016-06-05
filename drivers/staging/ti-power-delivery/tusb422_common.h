@@ -282,11 +282,6 @@ struct tusb422_timer_t {
     bool          queued;
 };
 
-
-// BQ - I don't use a "setup_timer" function.  I set timer data to be PD port number during init of the module using the timer.  
-// timer_start sets the function pointer of the timer struct to provided param.
-
-
 //*****************************************************************************
 //
 //! \brief Starts a timer.
@@ -315,7 +310,7 @@ void timer_cancel(struct tusb422_timer_t *timer);
 void tcpm_hal_vbus_enable(uint8_t port, enum vbus_select_t sel);
 void tcpm_hal_vbus_disable(uint8_t port, enum vbus_select_t sel);
 
-void tcpm_init(const tcpc_config_t *config);
+int tcpm_init(const tcpc_config_t *config);
 void usb_pd_init(const usb_pd_port_config_t *port_config);
 void tcpm_connection_task(void);
 void usb_pd_task(void);
