@@ -29,6 +29,7 @@
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/spinlock.h>
+#include <linux/workqueue.h>
 
 #include "tusb422_common.h"
 
@@ -46,6 +47,7 @@ struct tusb422_pwr_delivery {
 	struct gpio_desc *vbus_hv_gpio;
 	struct gpio_desc *vbus_5v_gpio;
         struct hrtimer timer;
+	struct work_struct work;
 	void (*call_back) (unsigned int);
 	tcpc_config_t *configuration;
 	usb_pd_port_config_t *port_config;
@@ -193,10 +195,13 @@ int tusb422_write(int reg, int value, int num_of_regs)
 
 int tusb422_read(int reg, int *value, int num_of_regs)
 {
+	int ret;
+
 	printk("%s: reg 0x%X, num of regs %i\n", __func__, reg, num_of_regs);
-	regmap_raw_read(tusb422_pd->regmap, reg, value, num_of_regs);
-	printk("%s: value 0x%X\n", __func__, (uint16_t) *value);
-	return 0;
+	ret = regmap_raw_read(tusb422_pd->regmap, reg, value, num_of_regs);
+	printk("%s: value 0x%X %i\n", __func__, (uint16_t) *value, ret);
+
+	return ret;
 };
 
 int tusb422_modify_reg(int reg, int clr_mask, int set_mask)
@@ -577,16 +582,39 @@ static enum hrtimer_restart tusb422_timer_tasklet(struct hrtimer *hrtimer)
 	}
 
 	disable_irq(tusb422_pwr->alert_irq);
-
 	tusb422_pwr->call_back(0);
-	/*tcpm_connection_task();
-	usb_pd_task();*/
-
 	enable_irq(tusb422_pwr->alert_irq);
+
+	schedule_work(&tusb422_pwr->work);
 
 	return HRTIMER_NORESTART;
 }
-	
+
+static void tusb422_work(struct work_struct *work)
+{
+	struct tusb422_pwr_delivery *tusb422_pwr =
+		container_of(work, struct tusb422_pwr_delivery, work);
+	int i;
+
+	printk("%s: alert_status %i\n", __func__, tusb422_pwr->alert_status);
+	if (tusb422_pwr->alert_status) {
+		for(i = 0; i <= 20; i++) {
+			msleep(100);
+			printk("%s: alert_status %i\n", __func__, tusb422_pwr->alert_status);
+			if (tusb422_pwr->alert_status == 0)
+				break;
+		}
+	}
+
+	disable_irq(tusb422_pwr->alert_irq);
+
+	tusb422_pwr->call_back(0);
+	tcpm_connection_task();
+	usb_pd_task();
+
+	enable_irq(tusb422_pwr->alert_irq);
+};
+
 static const struct regmap_config tusb422_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
@@ -672,6 +700,7 @@ static int tusb422_i2c_probe(struct i2c_client *client,
 	}
 
 	hrtimer_init(&tusb422_pd->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	INIT_WORK(&tusb422_pd->work, tusb422_work);
 
 	tusb422_pd->timer.function = tusb422_timer_tasklet;
 
