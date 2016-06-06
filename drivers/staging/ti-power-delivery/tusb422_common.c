@@ -49,14 +49,7 @@ int8_t tcpc_write16(unsigned int port, uint8_t reg, uint16_t data)
 
 int8_t tcpc_write_block(unsigned int port, uint8_t reg, uint8_t *data, uint8_t len)
 {
-	int i;
-
-	printk("%s: enter %i\n", __func__, len);
-
-	for (i = 0; i <= len; i++)
-		tusb422_write(reg + i, *(data + i), 1);
-
-	return 0;
+    return tusb422_write_block(reg, (int*)data, len);
 };
 
 // Modifies an 8-bit register.  
@@ -65,8 +58,7 @@ void tcpc_modify8(unsigned int port,
                   uint8_t clr_mask,
                   uint8_t set_mask)
 {
-
-	printk("%s: enter \n", __func__);
+//	printk("%s: enter \n", __func__);
 
 	tusb422_modify_reg(reg, clr_mask, set_mask);
 };
@@ -84,7 +76,7 @@ int timer_start(struct tusb422_timer_t *timer,
 	unsigned int timeout_ms,
 	void (*function)(unsigned int))
 {
-	printk("%s: Enter\n", __func__);
+//	printk("%s: %pF %u ms\n", __func__, function, timeout_ms);
 	tusb422_set_timer_func(*function);
 	tusb422_start_timer(timeout_ms);
 
@@ -93,21 +85,27 @@ int timer_start(struct tusb422_timer_t *timer,
 
 void timer_cancel(struct tusb422_timer_t *timer)
 {
-	printk("%s: Enter\n", __func__);
+//	printk("%s: Enter\n", __func__);
+    tusb422_clr_timer_func();
 	tusb422_stop_timer();
 };
 
 void tcpm_hal_vbus_enable(uint8_t port, enum vbus_select_t sel)
 {
-	printk("%s: Enter\n", __func__);
+//	printk("%s: Enter\n", __func__);
 	tusb422_set_vbus((int) sel);
 };
 
 void tcpm_hal_vbus_disable(uint8_t port, enum vbus_select_t sel)
 {
-	printk("%s: Enter\n", __func__);
+//	printk("%s: Enter\n", __func__);
 	tusb422_clr_vbus((int) sel);
 };
+
+void tcpm_msleep(int msecs)
+{
+    tusb422_msleep(msecs);
+}
 
 void tcpc_config(unsigned int port, smbus_interface_t intf, uint8_t slave_addr)
 {

@@ -164,7 +164,7 @@ void tcpm_set_voltage_alarm_lo(unsigned int port, uint16_t threshold_25mv);
 void tcpm_set_voltage_alarm_hi(unsigned int port, uint16_t threshold_25mv);
 
 bool tcpm_is_vbus_present(unsigned int port);
-uint16_t tcpm_read_vbus_voltage(unsigned int port);
+uint16_t tcpm_get_vbus_voltage(unsigned int port);
 
 void tcpm_set_autodischarge_disconnect(unsigned int port, bool enable);
 void tcpm_set_sink_disconnect_threshold(unsigned int port, uint16_t threshold_25mv);

@@ -49,7 +49,7 @@ static void (*pd_hard_reset_cbk)(unsigned int port) = NULL;
 static void (*pd_transmit_cbk)(unsigned int port, tx_status_t status) = NULL;
 static void (*pd_receive_cbk)(unsigned int port) = NULL;
 
-#if DEBUG_LEVEL >= 3
+#if DEBUG_LEVEL >= 1
 static const char *state2string[]=
 {
     "UNATTACHED_SRC",
@@ -413,7 +413,7 @@ void tcpm_register_callbacks(const tcpm_callbacks_t *callbacks)
 
 static void tcpm_set_state(tcpc_device_t *dev, tcpc_state_t new_state)
 {
-    INFO("%s\n", state2string[new_state]);
+    CRIT("%s\n", state2string[new_state]);
 
     dev->last_state = dev->state;
     dev->state = new_state;
@@ -759,7 +759,7 @@ void tcpm_disable_pd_receive(unsigned int port)
 
 
 /* Returns VBUS voltage in 25mV units.  Must be in ATTACHED state where VBUS monitoring is enabled. */
-uint16_t tcpm_read_vbus_voltage(unsigned int port)
+uint16_t tcpm_get_vbus_voltage(unsigned int port)
 {
     uint16_t volt;
 
@@ -771,6 +771,8 @@ uint16_t tcpm_read_vbus_voltage(unsigned int port)
 
 void tcpm_force_discharge(unsigned int port, uint16_t threshold_25mv)
 {
+    CRIT("VBUS Force Discharge to %u mV\n", threshold_25mv * 25);
+
     tcpc_write16(port, TCPC_REG_VBUS_STOP_DISCHARGE_THRESH, threshold_25mv);
 
     tcpc_modify8(port, TCPC_REG_POWER_CTRL, 0, TCPC_PWR_CTRL_FORCE_DISCHARGE);
@@ -976,12 +978,12 @@ void tcpm_connection_state_machine(unsigned int port)
                 /****** TUSB422 PG1.0 workaround for Tx Discarded issue (CDDS #38).  ******/
                 tcpc_read8(port, TCPC_REG_MSG_HDR_INFO, &reg);
                 
-                if (reg & POWER_ROLE_BIT)
+                if (reg & PD_PWR_ROLE_SRC)
                 {
                     // Clear message header info.
                     tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);     
                 }
-                else
+                else /* SINK */
                 {
                     // Remove CC1 & CC2 terminations.
                     tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
@@ -994,8 +996,16 @@ void tcpm_connection_state_machine(unsigned int port)
                     timer_start(&dev->timer, T_VBUS_DISCHARGE_MS, timeout_vbus);
 
                     // Wait for vSafe0V.
-                    while ((tcpm_read_vbus_voltage(dev->port) > VSAFE0V_MAX) &&
-                           !vbus_timed_out);
+                    while ((tcpm_get_vbus_voltage(dev->port) > VSAFE0V_MAX) &&
+                           !vbus_timed_out)
+                    {
+                        tcpm_msleep(5);
+                    }
+
+                    if (vbus_timed_out)
+                    {
+                        CRIT("\n### timeout waiting for vSafe0V!\n\n");
+                    }
                 
                     // Clear message header info.
                     tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);     
@@ -1169,7 +1179,11 @@ void tcpm_connection_state_machine(unsigned int port)
                 tcpm_src_vbus_5v_enable(port);     
 
                 tcpm_enable_vbus_detect(port);
-                while (!tcpm_is_vbus_present(port));
+                while (!tcpm_is_vbus_present(port))
+                {
+                    // BQ - add a timeout for this.
+                    tcpm_msleep(1);
+                }
             }
 
             // Notify upper layers.
@@ -1181,7 +1195,7 @@ void tcpm_connection_state_machine(unsigned int port)
             if (dev->silicon_revision == 0)
             {
                 /****** TUSB422 PG1.0 workaround for role change issue (CDDS #41).  ******/
-                // Disable VBUS detect.
+                // Disable VBUS detect. (Try.SRC fix)
                 tcpc_write8(port, TCPC_REG_COMMAND, TCPC_CMD_DISABLE_VBUS_DETECT);
 
                 // Remove CC1 & CC2 terminations.
@@ -1195,7 +1209,6 @@ void tcpm_connection_state_machine(unsigned int port)
 
             tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
                         tcpc_reg_role_ctrl_set(false, dev->rp_val, cc_pull, cc_pull));
-
             
             timer_start(&dev->timer, T_DRP_TRY_MS, timeout_drp_try);
             break;
@@ -1649,13 +1662,13 @@ int tcpm_port_init(unsigned int port, const tcpc_config_t *config)
         tcpm_set_state(dev,TCPC_STATE_UNATTACHED_SRC);
     }
 
-    CRIT("Port[%u]: addr: 0x%02x, %s, Rp: %s, %s.\n", 
+    CRIT("Port[%u]: addr: 0x%02x, %s, Rp: %s, Flags: %s.\n", 
          port, config->slave_addr, 
          (dev->role == ROLE_SRC) ? "SRC" : 
          (dev->role == ROLE_SNK) ? "SNK" : "DRP", 
-         (dev->rp_val == RP_DEFAULT_CURRENT) ? "def" : 
-         (dev->rp_val == RP_MEDIUM_CURRENT) ? "mid" : "hi", 
-         (dev->flags & TC_FLAGS_TRY_SRC) ? "Try_SRC" : (dev->flags & TC_FLAGS_TRY_SNK) ? "Try_SNK" : "");
+         (dev->rp_val == RP_DEFAULT_CURRENT) ? "default" : 
+         (dev->rp_val == RP_MEDIUM_CURRENT) ? "1.5A" : "3.0A", 
+         (dev->flags & TC_FLAGS_TRY_SRC) ? "Try_SRC" : (dev->flags & TC_FLAGS_TRY_SNK) ? "Try_SNK" : "None");
 
     // Read VID/PID/DID.
     tcpc_read16(port, TCPC_REG_VENDOR_ID, &id);

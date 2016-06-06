@@ -69,11 +69,14 @@
 
 int tusb422_read(int reg, int *value, int num_of_regs);
 int tusb422_write(int reg, int value, int num_of_regs);
+int tusb422_write_block(int reg, int *data, int num_of_regs);
 int tusb422_modify_reg(int reg, int clr_mask, int set_mask);
 int tusb422_set_vbus(int vbus_sel);
 int tusb422_clr_vbus(int vbus_sel);
+void tusb422_msleep(int msecs);
 
 void tusb422_set_timer_func(void (*function)(unsigned int));
+void tusb422_clr_timer_func(void);
 int tusb422_start_timer(unsigned int timeout_ms);
 int tusb422_stop_timer(void);
 

@@ -103,7 +103,7 @@ void tusb422_init(unsigned int port)
     tcpc_write8(port, TUSB422_REG_INT_MASK, TUSB422_INT_MASK_ALL);
 
     // Unmask alert.
-    tcpc_modify8(port, TCPC_REG_ALERT_MASK, 0, 0x00);
+//    tcpc_modify8(port, TCPC_REG_ALERT_MASK, 0, 0x00);
     tcpc_modify8(port, TCPC_REG_ALERT_MASK + 1, 0, 0x80);
 
     return;

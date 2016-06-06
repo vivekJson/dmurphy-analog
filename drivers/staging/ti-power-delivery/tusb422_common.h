@@ -22,26 +22,26 @@
 
 /** Debug print functions **/
 #ifndef DEBUG_LEVEL 
-#define DEBUG_LEVEL 3
+#define DEBUG_LEVEL 0
 #endif
 
 #if DEBUG_LEVEL >= 1
     // Variadic macro requires "--gcc" compiler switch.
-    #define CRIT(str, args...)  printk(KERN_NOTICE str, ##args)  
+    #define CRIT(str, args...)  printk(str, ##args)  
 #else
     #define CRIT(str, args...)  {}
 #endif
 
 #if DEBUG_LEVEL >= 2
     // Variadic macro requires "--gcc" compiler switch.
-    #define DEBUG(str, args...)  printk(KERN_INFO str, ##args)  
+    #define DEBUG(str, args...)  printk(str, ##args)  
 #else
     #define DEBUG(str, args...)  {}
 #endif
 
 #if DEBUG_LEVEL >= 3
     // Variadic macro requires "--gcc" compiler switch.
-    #define INFO(str, args...)  printk(KERN_DEBUG str, ##args)  
+    #define INFO(str, args...)  printk(str, ##args)  
 #else
     #define INFO(str, args...)  {}
 #endif
@@ -309,6 +309,7 @@ void timer_cancel(struct tusb422_timer_t *timer);
 // open drain and require multiple GPIOs.
 void tcpm_hal_vbus_enable(uint8_t port, enum vbus_select_t sel);
 void tcpm_hal_vbus_disable(uint8_t port, enum vbus_select_t sel);
+void tcpm_msleep(int msecs);
 
 int tcpm_init(const tcpc_config_t *config);
 void usb_pd_init(const usb_pd_port_config_t *port_config);

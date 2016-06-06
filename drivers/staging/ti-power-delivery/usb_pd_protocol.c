@@ -29,7 +29,7 @@ extern void usb_pd_pe_notify(unsigned int port, usb_pd_prl_alert_t prl_alert);
 extern void usb_pd_pe_connection_state_change_handler(unsigned int port, tcpc_state_t state);
 extern void usb_pd_pe_voltage_alarm_handler(unsigned int port, bool hi_voltage);
 
-#if DEBUG_LEVEL >= 1
+#if DEBUG_LEVEL >= 2
 
 static const char *ctrlmsg2string[0x14]=
 {
@@ -206,13 +206,13 @@ static void usb_pd_prl_tx_msg(unsigned int port, uint8_t *buf, tcpc_transmit_t s
 
 void usb_pd_prl_tx_ctrl_msg(unsigned int port, uint8_t *buf, msg_hdr_ctrl_msg_type_t msg_type, tcpc_transmit_t sop_type)
 {
-    DEBUG("Tx ctrl msg_type: %u (%s), sop: %u\n", msg_type, ctrlmsg2string[msg_type], sop_type);
+    DEBUG("Tx msg_type: %u (%s), sop: %u\n", msg_type, ctrlmsg2string[msg_type], sop_type);
 
     buf[0] = 2; /* Tx byte cnt */ 
     buf[1] = USB_PD_HDR_GEN_BYTE0(pd[port].data_role, msg_type);
     buf[2] = USB_PD_HDR_GEN_BYTE1(0, 0, pd[port].msg_id[sop_type], pd[port].power_role);
 
-    DEBUG("buf[0-2]: 0x%02x %02x %02x\n", buf[0], buf[1], buf[2]);
+    INFO("buf[0-2]: 0x%02x %02x %02x\n", buf[0], buf[1], buf[2]);
 
     if (msg_type == CTRL_MSG_TYPE_SOFT_RESET)
     {
@@ -230,13 +230,13 @@ void usb_pd_prl_tx_ctrl_msg(unsigned int port, uint8_t *buf, msg_hdr_ctrl_msg_ty
 
 void usb_pd_prl_tx_data_msg(unsigned int port, uint8_t *buf, msg_hdr_data_msg_type_t msg_type, tcpc_transmit_t sop_type, unsigned int ndo)
 {
-    DEBUG("Tx data msg_type: %u (%s), sop: %u, ndo: %u\n", msg_type, datamsg2string[msg_type], sop_type, ndo);
+    DEBUG("Tx msg_type: %u (%s), sop: %u, ndo: %u\n", msg_type, datamsg2string[msg_type], sop_type, ndo);
 
     buf[0] = (ndo << 2) + 2; // Each data object is 4-bytes plus 2-byte header.
     buf[1] = USB_PD_HDR_GEN_BYTE0(pd[port].data_role, msg_type);
     buf[2] = USB_PD_HDR_GEN_BYTE1(0, ndo, pd[port].msg_id[sop_type], pd[port].power_role);
 
-    DEBUG("buf[0-2]: 0x%02x %02x %02x\n", buf[0], buf[1], buf[2]);
+    INFO("buf[0-2]: 0x%02x %02x %02x\n", buf[0], buf[1], buf[2]);
 
     usb_pd_prl_tx_msg(port, buf, sop_type);
 

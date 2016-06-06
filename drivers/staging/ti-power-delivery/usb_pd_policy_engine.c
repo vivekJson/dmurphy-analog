@@ -141,7 +141,7 @@ void pe_debug_state_history(unsigned int port)
 
 static void pe_set_state(usb_pd_port_t *dev, usb_pd_pe_state_t new_state)
 {
-    INFO("PE_%s\n", state2string[new_state]);
+    CRIT("PE_%s\n", state2string[new_state]);
 
     dev->state[dev->state_idx] = new_state;
     dev->current_state = &dev->state[dev->state_idx];
@@ -243,6 +243,7 @@ void usb_pd_pe_init(unsigned int port, usb_pd_port_config_t *config)
     dev->hard_reset_cnt = 0;
 
     dev->src_settling_time = config->src_settling_time_ms;
+    printk("dev->src_settling_time = 0x%x\n", dev->src_settling_time);
     dev->high_pwr_cable = false;
 
     return;
@@ -800,7 +801,7 @@ static void pe_src_transition_to_default_entry(usb_pd_port_t *dev)
     timer_start(&dev->timer, T_SRC_TURN_OFF_MS, timeout_vbus);
 
     // Wait for vSafe0V before starting source recover timer.
-    while ((tcpm_read_vbus_voltage(dev->port) > VSAFE0V_MAX) &&
+    while ((tcpm_get_vbus_voltage(dev->port) > VSAFE0V_MAX) &&
            !vbus_timed_out);
 
     timer_start(&dev->timer, T_SRC_RECOVER_MS, timeout_src_recover);
@@ -822,7 +823,7 @@ static void pe_src_transition_to_default_exit(usb_pd_port_t *dev)
     timer_start(&dev->timer, T_SRC_TURN_ON_MS, timeout_vbus);
 
     // Wait for VBUS to reach vSafe5V before going to startup state.
-    while ((tcpm_read_vbus_voltage(dev->port) < VSAFE5V_MIN) &&
+    while ((tcpm_get_vbus_voltage(dev->port) < VSAFE5V_MIN) &&
            !vbus_timed_out);
 
     pe_set_state(dev, PE_SRC_STARTUP);
@@ -922,6 +923,8 @@ static void pd_power_supply_ready(usb_pd_port_t *dev)
 
 #define V_SRC_VALID_MV  500  /* +/- 500 mV */
 
+#if 1
+
 static void pd_transition_power_supply(usb_pd_port_t *dev)
 {
     uint16_t v_threshold;
@@ -962,6 +965,84 @@ static void pd_transition_power_supply(usb_pd_port_t *dev)
 
     return;
 }
+
+#else
+
+static void pd_transition_power_supply(usb_pd_port_t *dev)
+{
+    uint16_t v_threshold;
+    uint16_t present_voltage;
+    uint16_t requested_voltage;
+    usb_pd_port_config_t *config = usb_pd_pm_get_config(dev->port);
+
+    if (config->num_src_pdos == 1)
+    {
+        // Only 5V is supported so no voltage transition required.
+        pe_set_state(dev, PE_SRC_TRANSITION_PS_EXIT);
+        return;
+    }
+
+//    non_reentrant_context_save();
+
+    // Get present VBUS voltage and convert to millivolts.
+    present_voltage = tcpm_get_vbus_voltage(dev->port) * 25;
+
+    // Get requested VBUS voltage in millivolts.
+    requested_voltage = ((dev->src_pdo[dev->object_position - 1] >> 10) & 0x3FF) * 50;
+
+    if (requested_voltage < present_voltage)
+    {
+        if ((present_voltage - requested_voltage) > 1000)
+        {
+            tcpm_src_vbus_disable(dev->port);
+
+            v_threshold = (requested_voltage + V_SRC_VALID_MV) / 25;
+
+            vbus_timed_out = false;
+            timer_start(&dev->timer, T_SRC_TURN_OFF_MS, timeout_vbus);
+
+            // Force VBUS discharge.
+            tcpm_force_discharge(dev->port, v_threshold);
+
+            // Wait for discharge to complete.
+            while ((tcpm_get_vbus_voltage(dev->port) > v_threshold) &&
+                   !vbus_timed_out);
+        }
+    }
+
+    if (dev->object_position == 1)
+    {
+        // 5V.
+        tcpm_src_vbus_5v_enable(dev->port);
+
+        v_threshold = VSAFE5V_MIN;
+    }
+    else
+    {
+        // If supporting more than one higher voltage.  Check PDO to determine voltage.
+        tcpm_src_vbus_hi_volt_enable(dev->port);
+
+        // Program Hi voltage alarm based on PDO.
+        v_threshold = (dev->src_pdo[dev->object_position - 1] >> 10) & 0x3FF;
+
+        // If fixed PDO, multiply by 0.95 to get min.
+        v_threshold *= 95;
+        v_threshold /= 100;
+        v_threshold -= (V_SRC_VALID_MV / 50);
+        v_threshold = v_threshold << 1;  /* convert to 25mV units */
+    }
+
+    // Use Hi voltage alarm to determine when power supply is ready. 
+    // Alteratively, policy manager could notify policy engine or may be possible to 
+    // fixed delay if system timing is known.
+    tcpm_set_voltage_alarm_hi(dev->port, v_threshold);
+
+//    non_reentrant_context_restore();
+
+    return;
+}
+
+#endif
 
 static void timeout_src_transition(unsigned int port)
 {
