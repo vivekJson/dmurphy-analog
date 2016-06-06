@@ -386,6 +386,7 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 	unsigned int min_volt, current_flow, peak_current, pdo;
 	unsigned int max_volt, max_current, max_power, fast_role_support;
 	unsigned int op_current, min_current, op_power, priority;
+	unsigned int max_op_power, min_op_power;
 	int ret;
 	int num_of_sink = 0, num_of_src = 0;
 
@@ -472,13 +473,13 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 		if (ret)
 			return ret;
 
+		ret = of_property_read_u32(pp, "ti,peak_current",
+					   &peak_current);
+		if (ret)
+			printk("%s: Missing peak current\n", __func__);
+
 		switch (supply_type) {
 		case SUPPLY_TYPE_BATTERY:
-			ret = of_property_read_u32(pp, "ti,peak_current",
-						   &peak_current);
-			if (ret)
-				return ret;
-
 			if (current_flow == 0) {
 				num_of_src++;
 				ret = of_property_read_u32(pp, "ti,max_power",
@@ -486,25 +487,41 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 				if (ret)
 					return ret;
 
+				tusb422_pd->port_config->src_caps[pdo].SupplyType = supply_type;
+				tusb422_pd->port_config->src_caps[pdo].PeakI = peak_current;
+				tusb422_pd->port_config->src_caps[pdo].MinV = PDO_VOLT(min_volt);
+				tusb422_pd->port_config->src_caps[pdo].MaxV = PDO_VOLT(max_volt);
 				tusb422_pd->port_config->src_caps[pdo].MaxPower = max_power;
 			} else if (current_flow == 1) {
 				num_of_sink++;
+				ret = of_property_read_u32(pp, "ti,operational-pwr",
+							   &op_power);
+				if (ret)
+					printk("%s: Missing op_power\n", __func__);
+
+				ret = of_property_read_u32(pp, "ti,max_operational-pwr",
+							   &max_op_power);
+				if (ret)
+					printk("%s: Missing max_op_power\n", __func__);
+
+				ret = of_property_read_u32(pp, "ti,min_operational-pwr",
+							   &min_op_power);
+				if (ret)
+					printk("%s: Missing min_op_power\n", __func__);
+
+				tusb422_pd->port_config->snk_caps[pdo].SupplyType = supply_type;
+				tusb422_pd->port_config->snk_caps[pdo].PeakI = peak_current;
+				tusb422_pd->port_config->snk_caps[pdo].MinV = PDO_VOLT(min_volt);
+				tusb422_pd->port_config->snk_caps[pdo].MaxV = PDO_VOLT(max_volt);
+				tusb422_pd->port_config->snk_caps[pdo].MaxOperatingPower = max_op_power;
+				tusb422_pd->port_config->snk_caps[pdo].MinOperatingPower = min_op_power;
+				tusb422_pd->port_config->snk_caps[pdo].OperationalPower = op_power;
 			} else {
 				printk("%s: Undefined current flow\n", __func__);
 			}
 
-	/*MaxPower
-	MaxOperatingPower
-	MinOperatingPower
-	OperationalPower*/
-
 			break;
 		case SUPPLY_TYPE_FIXED:
-			ret = of_property_read_u32(pp, "ti,peak_current",
-						   &peak_current);
-			if (ret)
-				printk("%s: Missing peak current\n", __func__);
-
 			if (current_flow == 0) {
 				num_of_src++;
 				ret = of_property_read_u32(pp, "ti,max_current",
@@ -557,6 +574,30 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 
 			break;
 		case SUPPLY_TYPE_VARIABLE:
+
+#if 0
+struct src_pdo_t {
+	enum supply_type_t SupplyType; /*! Supply type (fixed, variable, battery)  */
+	enum peak_current_t PeakI;      /*! Peak current (fixed and var only)       */
+	uint16_t        MinV;       /*! Minimum voltage                         */
+	uint16_t        MaxV;       /*! Maximum voltage                         */
+	uint16_t        MaxI;       /*! Maximum Current (fixed and var only)    */
+	uint16_t        MaxPower;   /*! Maximum Power (battery only)            */
+};
+
+struct snk_pdo_t {
+	enum supply_type_t   SupplyType; /*! Supply type (fixed, variable, battery)  */
+	enum peak_current_t  PeakI;      /*! Peak current                            */
+	uint16_t        MinV;       /*! Minimum voltage                         */
+	uint16_t        MaxV;       /*! Maximum voltage    (variable, battery)  */
+	uint16_t        MaxOperatingCurrent; /*! Maximum Current  (fixed, variable)    */
+	uint16_t        MinOperatingCurrent; /*! Mininum Current  (fixed, variable)    */
+	uint16_t        OperationalCurrent;  /*! Current  (fixed, variable)    */
+	uint16_t        MaxOperatingPower;   /*! Maximum Power    (battery only)       */
+	uint16_t        MinOperatingPower;   /*! Minimum Power    (battery only)       */
+	uint16_t        OperationalPower;    /*! Power    (battery only)       */
+};
+#endif
 	/*PeakI
 	MaxI
 	MaxOperatingCurrent
