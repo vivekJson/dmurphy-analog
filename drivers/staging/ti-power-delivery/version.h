@@ -3,6 +3,6 @@
 
 
 #define PD_LIB_VERSION_MAJOR  00
-#define PD_LIB_VERSION_MINOR  20
+#define PD_LIB_VERSION_MINOR  23
 
 #endif

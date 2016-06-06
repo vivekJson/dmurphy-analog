@@ -19,7 +19,7 @@
 
 // All values in this header are defined by the USB PD spec.
 
-#define PD_SPEC_VER  0x01  /* 1 = Revision 2.0 */
+#define PD_SPEC_VER  0x02  /* 1 = Revision 2.0, 2 = Revision 3.0 */
 
 #define PD_PWR_ROLE_SNK 0
 #define PD_PWR_ROLE_SRC 1
@@ -30,7 +30,11 @@
 #ifdef CABLE_PLUG
 #define N_RETRY_COUNT    0   /* No retry allowed for cable plugs per USBPD3 spec */
 #else
+#if PD_SPEC_VER == 0x02 /* Rev 3.0 */
 #define N_RETRY_COUNT    2   /* nRetryCount=2 per USBPD3 spec */
+#else /* Rev 2.0 */
+#define N_RETRY_COUNT    3   /* nRetryCount=3 per USBPD3 spec */
+#endif 
 #endif
 
 /* Control msg when number of data objects is zero */
