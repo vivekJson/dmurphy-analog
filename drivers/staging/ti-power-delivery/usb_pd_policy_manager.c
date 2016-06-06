@@ -1,7 +1,7 @@
 /*
  * Texas Instruments TUSB422 Power Delivery
  *
- * Author: 
+ * Author:
  * Copyright: (C) 2016 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 
 
-static usb_pd_port_config_t pd_port_config[NUM_TCPC_DEVICES];  
+static usb_pd_port_config_t pd_port_config[NUM_TCPC_DEVICES];
 
 /* Power negotiation is an atomic msg sequence so these variables can be global */
 uint32_t rdo;
@@ -44,10 +44,10 @@ usb_pd_port_config_t* usb_pd_pm_get_config(unsigned int port)
 
 uint32_t get_data_object(uint8_t *obj_data)
 {
-    return ((((uint32_t)obj_data[3]) << 24) | 
-            (((uint32_t)obj_data[2]) << 16) | 
-            (((uint32_t)obj_data[1]) << 8) | 
-            (((uint32_t)obj_data[0]))); 
+    return ((((uint32_t)obj_data[3]) << 24) |
+            (((uint32_t)obj_data[2]) << 16) |
+            (((uint32_t)obj_data[1]) << 8) |
+            (((uint32_t)obj_data[0])));
 }
 
 void usb_pd_pm_evaluate_src_caps(unsigned int port)
@@ -60,15 +60,15 @@ void usb_pd_pm_evaluate_src_caps(unsigned int port)
     uint8_t *pdo_data = dev->rx_msg_buf;
     uint32_t pdo;
 
-//    uint16_t max_supported_input_50mv = 0;   
+//    uint16_t max_supported_input_50mv = 0;
 //    uint16_fast_t output_250mw, output_50mv, output_10ma;
 //    uint16_fast_t sel_250mw = 0;
 //    uint16_fast_t max_current_10ma;
 //
 //    object_pos = 1;
-//    max_current_10ma = (dev->high_pwr_cable) ? 500 : 300;    
+//    max_current_10ma = (dev->high_pwr_cable) ? 500 : 300;
 //
-//    // Search sink PDOs for highest voltage supported. 
+//    // Search sink PDOs for highest voltage supported.
 //    for (i = 0; i < config->num_snk_pdos; i++)
 //    {
 //        if ((dev->snk_pdo[i] >> 30) == SUPPLY_TYPE_FIXED)
@@ -92,7 +92,7 @@ void usb_pd_pm_evaluate_src_caps(unsigned int port)
 //            continue;
 //
 //        if ((pdo[i] >> 30) == SUPPLY_TYPE_BATTERY)
-//        {           
+//        {
 //            output_250mw = (pdo[i] & 0x3FF);
 //        }
 //        else
@@ -120,9 +120,9 @@ void usb_pd_pm_evaluate_src_caps(unsigned int port)
     uint16_t min_snk_operating_power;
     uint16_t min_snk_operating_current;
     uint16_t max_snk_voltage;
-    uint16_t min_snk_voltage[PD_MAX_PDO_NUM][PD_MAX_PDO_NUM] = {0};
-    uint16_t max_snk_current[PD_MAX_PDO_NUM][PD_MAX_PDO_NUM] = {0};
-    uint16_t max_snk_power[PD_MAX_PDO_NUM][PD_MAX_PDO_NUM] = {0};
+    uint16_t min_snk_voltage[PD_MAX_PDO_NUM][PD_MAX_PDO_NUM] = {{0}};
+    uint16_t max_snk_current[PD_MAX_PDO_NUM][PD_MAX_PDO_NUM] = {{0}};
+    uint16_t max_snk_power[PD_MAX_PDO_NUM][PD_MAX_PDO_NUM] = {{0}};
     uint16_t selected_max = 0;
     enum supply_type_t supply_type;
 
@@ -141,7 +141,7 @@ void usb_pd_pm_evaluate_src_caps(unsigned int port)
 
         CRIT("PDO: 0x%08lx\n", pdo);
 
-        // Extract source 
+        // Extract source
         supply_type = (enum supply_type_t)PDO_SUPPLY_TYPE(pdo);
 
         min_src_voltage = PDO_MIN_VOLTAGE(pdo);
@@ -171,7 +171,7 @@ void usb_pd_pm_evaluate_src_caps(unsigned int port)
         }
 
 
-        // Search sink caps to determine if source offered PDO is acceptable.  
+        // Search sink caps to determine if source offered PDO is acceptable.
         for (j = 0; j < config->num_snk_pdos; j++)
         {
             if (config->snk_caps[j].SupplyType == SUPPLY_TYPE_FIXED)
@@ -234,7 +234,7 @@ void usb_pd_pm_evaluate_src_caps(unsigned int port)
                     (max_src_current >= min_snk_operating_current))
                 {
                     acceptable_pdo[i] = true;
-                    min_snk_voltage[i][j] = min_src_voltage;                  
+                    min_snk_voltage[i][j] = min_src_voltage;
                     if (config->snk_caps[j].SupplyType != SUPPLY_TYPE_BATTERY)
                     {
                         max_snk_current[i][j] = MIN(max_src_current, config->snk_caps[j].MaxOperatingCurrent);
@@ -254,7 +254,7 @@ void usb_pd_pm_evaluate_src_caps(unsigned int port)
             }
         }
 
-        // Increment PDO data pointer offset to next PDO. 
+        // Increment PDO data pointer offset to next PDO.
         idx_offset += 4;
     }
 
@@ -303,10 +303,10 @@ void usb_pd_pm_evaluate_src_caps(unsigned int port)
         }
     }
 
-    // Save PDO min voltage (multiply by 2 to convert to 25mV LSB) so we can set discharge voltage threshold. 
+    // Save PDO min voltage (multiply by 2 to convert to 25mV LSB) so we can set discharge voltage threshold.
     dev->min_voltage = PDO_MIN_VOLTAGE(selected_pdo) << 1;
 
-    DEBUG("selected_pdo: %lx, selected_snk_pdo_idx: %u, min_voltage = %u mV\n", 
+    DEBUG("selected_pdo: %lx, selected_snk_pdo_idx: %u, min_voltage = %u mV\n",
           selected_pdo, selected_snk_pdo_idx, dev->min_voltage * 25);
 
     return;
@@ -563,12 +563,12 @@ void usb_pd_init(const usb_pd_port_config_t *port_config)
 {
     unsigned int port;
 
-    CRIT(" ________  _________  ____ ___  ___\n"); 
+    CRIT(" ________  _________  ____ ___  ___\n");
     CRIT("/_  __/ / / / __/ _ )/ / /|_  ||_  |\n");
-    CRIT(" / / / /_/ /\\ \\/ _  /_  _/ __// __/\n"); 
-    CRIT("/_/  \\____/___/____/ /_//____/____/\n"); 
+    CRIT(" / / / /_/ /\\ \\/ _  /_  _/ __// __/\n");
+    CRIT("/_/  \\____/___/____/ /_//____/____/\n");
 
-    CRIT("\nPD Stack v%u.%02u\n", PD_LIB_VERSION_MAJOR, 
+    CRIT("\nPD Stack v%u.%02u\n", PD_LIB_VERSION_MAJOR,
          PD_LIB_VERSION_MINOR);
     CRIT("=====================================\n");
 

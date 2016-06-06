@@ -1,7 +1,7 @@
 /*
  * Texas Instruments TUSB422 Power Delivery
  *
- * Author: 
+ * Author:
  * Copyright: (C) 2016 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -40,7 +40,7 @@ typedef enum
 //typedef enum
 //{
 //    PRL_RX_MSG_GOTO_MIN        =  CTRL_MSG_TYPE_GOTO_MIN,        /* SOP only */
-//    PRL_RX_MSG_ACCEPT          =  CTRL_MSG_TYPE_ACCEPT,          
+//    PRL_RX_MSG_ACCEPT          =  CTRL_MSG_TYPE_ACCEPT,
 //    PRL_RX_MSG_REJECT          =  CTRL_MSG_TYPE_REJECT,          /* SOP only */
 //    PRL_RX_MSG_PING            =  CTRL_MSG_TYPE_PING,            /* SOP only */
 //    PRL_RX_MSG_PS_RDY          =  CTRL_MSG_TYPE_PS_RDY,          /* SOP only */
@@ -50,22 +50,22 @@ typedef enum
 //    PRL_RX_MSG_PR_SWAP         =  CTRL_MSG_TYPE_PR_SWAP,         /* SOP only */
 //    PRL_RX_MSG_VCONN_SWAP      =  CTRL_MSG_TYPE_VCONN_SWAP,      /* SOP only */
 //    PRL_RX_MSG_WAIT            =  CTRL_MSG_TYPE_WAIT,            /* SOP only */
-//    PRL_RX_MSG_SOFT_RESET      =  CTRL_MSG_TYPE_SOFT_RESET,      
-//    PRL_RX_MSG_NOT_SUPPORTED   =  CTRL_MSG_TYPE_NOT_SUPPORTED,   
+//    PRL_RX_MSG_SOFT_RESET      =  CTRL_MSG_TYPE_SOFT_RESET,
+//    PRL_RX_MSG_NOT_SUPPORTED   =  CTRL_MSG_TYPE_NOT_SUPPORTED,
 //    PRL_RX_MSG_GET_SRC_CAP_EXT =  CTRL_MSG_TYPE_GET_SRC_CAP_EXT, /* SOP only */
 //    PRL_RX_MSG_GET_STATUS      =  CTRL_MSG_TYPE_GET_STATUS,      /* SOP only */
 //    PRL_RX_MSG_FR_SWAP         =  CTRL_MSG_TYPE_FR_SWAP,          /* SOP only */
 //
 //    /* Data Msgs */
-//    PRL_RX_MSG_SRC_CAPS        =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_SRC_CAPS),   
-//    PRL_RX_MSG_REQUEST         =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_REQUEST),    
-//    PRL_RX_MSG_BIST            =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_BIST),       
-//    PRL_RX_MSG_SNK_CAPS        =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_SNK_CAPS),   
+//    PRL_RX_MSG_SRC_CAPS        =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_SRC_CAPS),
+//    PRL_RX_MSG_REQUEST         =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_REQUEST),
+//    PRL_RX_MSG_BIST            =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_BIST),
+//    PRL_RX_MSG_SNK_CAPS        =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_SNK_CAPS),
 //    PRL_RX_MSG_BATT_STATUS     =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_BATT_STATUS),
-//    PRL_RX_MSG_ALERT           =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_ALERT),      
-//    PRL_RX_MSG_VENDOR          =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_VENDOR),     
-//        
-//} usb_pd_prl_rx_msg_t; 
+//    PRL_RX_MSG_ALERT           =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_ALERT),
+//    PRL_RX_MSG_VENDOR          =  (PRL_RX_DATA_MSG_OFFSET | DATA_MSG_TYPE_VENDOR),
+//
+//} usb_pd_prl_rx_msg_t;
 
 
 void usb_pd_prl_tx_ctrl_msg(unsigned int port, uint8_t *buf, msg_hdr_ctrl_msg_type_t msg_type, tcpc_transmit_t sop_type);

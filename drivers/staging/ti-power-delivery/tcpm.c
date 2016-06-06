@@ -1,7 +1,7 @@
 /*
  * Texas Instruments TUSB422 Power Delivery
  *
- * Author: 
+ * Author:
  * Copyright: (C) 2016 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -69,8 +69,8 @@ static const char *state2string[]=
     "ORIENTED_DEBUG_ACC_SRC",
     "DEBUG_ACC_SNK",
     "AUDIO_ACC",
-    "ERROR_RECOVERY",    
-    "DISABLED"  
+    "ERROR_RECOVERY",
+    "DISABLED"
 };
 #endif
 
@@ -82,7 +82,7 @@ tcpc_device_t* tcpm_get_device(unsigned int port)
 
 void tcpm_dump_state(unsigned int port)
 {
-/* Dan M dev not used 
+/* Dan M dev not used
     tcpc_device_t *dev = tcpm_get_device(port);
 
     CRIT("\nType-C State: %s (last: %s)\n", state2string[dev->state], state2string[dev->last_state]);
@@ -144,10 +144,10 @@ static void tcpm_notify_conn_state(unsigned int port, tcpc_state_t state)
 
 static void tcpm_notify_current_change(unsigned int port, tcpc_cc_snk_state_t state)
 {
-    DEBUG("Current advertisement change detected: %s\n", 
-          (state == CC_SNK_STATE_POWER30) ? "3.0A" : 
-          (state == CC_SNK_STATE_POWER15) ? "1.5A" : 
-          (state == CC_SNK_STATE_DEFAULT) ? "500/900mA" : "?"); 
+    DEBUG("Current advertisement change detected: %s\n",
+          (state == CC_SNK_STATE_POWER30) ? "3.0A" :
+          (state == CC_SNK_STATE_POWER15) ? "1.5A" :
+          (state == CC_SNK_STATE_DEFAULT) ? "500/900mA" : "?");
 
     if (current_change_cbk) current_change_cbk(port, state);
     return;
@@ -277,13 +277,13 @@ void tcpm_remove_rp_from_vconn_pin(unsigned int port)
     if (dev->plug_polarity == PLUG_UNFLIPPED)
     {
         // Remove Rp from CC2 pin.
-        tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+        tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                     tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_RP, CC_OPEN));
     }
     else
     {
         // Remove Rp from CC1 pin.
-        tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+        tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                     tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_OPEN, CC_RP));
     }
 
@@ -296,12 +296,12 @@ void tcpm_cc_pin_control(unsigned int port, tc_role_t role)
 
     if (dev->role == ROLE_SNK)
     {
-        tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+        tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                     tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_RD, CC_RD));
     }
     else if (dev->role == ROLE_SRC)
     {
-        tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+        tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                     tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_RP, CC_RP));
     }
 
@@ -338,40 +338,40 @@ void tcpm_register_dump(unsigned int port)
 	uint8_t i;
     uint8_t data;
 
-    non_reentrant_context_save();   
+    non_reentrant_context_save();
 
     CRIT("\nTCPC-%u Dump:\n", port);
 
     for (i = 0x10; i < 0x16; i++)
     {
         tcpc_read8(port, i, &data);
-        CRIT("[%02x] %02x\n", i, data); 
+        CRIT("[%02x] %02x\n", i, data);
     }
 
     for (i = 0x18; i < 0x20; i++)
     {
         tcpc_read8(port, i, &data);
-        CRIT("[%02x] %02x\n", i, data); 
+        CRIT("[%02x] %02x\n", i, data);
     }
 
     for (i = 0x2E; i < 0x30; i++)
     {
         tcpc_read8(port, i, &data);
-        CRIT("[%02x] %02x\n", i, data); 
+        CRIT("[%02x] %02x\n", i, data);
     }
 
     for (i = 0x70; i < 0x7A; i++)
     {
         tcpc_read8(port, i, &data);
-        CRIT("[%02x] %02x\n", i, data); 
+        CRIT("[%02x] %02x\n", i, data);
     }
 
     tcpc_read8(port, 0x90, &data);
-    CRIT("[90] %02x\n",data); 
+    CRIT("[90] %02x\n",data);
 
     tcpc_read8(port, 0x94, &data);
-    CRIT("[94] %02x\n",data); 
-    
+    CRIT("[94] %02x\n",data);
+
     // Restore interrupt enable.
     non_reentrant_context_restore();
 
@@ -477,20 +477,20 @@ static void timeout_cc_debounce(unsigned int port)
 
         if (dev->state == TCPC_STATE_ATTACH_WAIT_SRC)
         {
-            if ((cc1 == CC_SRC_STATE_RA) && 
+            if ((cc1 == CC_SRC_STATE_RA) &&
                 (cc2 == CC_SRC_STATE_RA))
             {
                 tcpm_set_state(dev, TCPC_STATE_AUDIO_ACC);
             }
-            else if ((cc1 == CC_SRC_STATE_RD) && 
+            else if ((cc1 == CC_SRC_STATE_RD) &&
                      (cc2 == CC_SRC_STATE_RD))
             {
                 tcpm_set_state(dev, TCPC_STATE_UNORIENTED_DEBUG_ACC_SRC);
             }
-            else if ((cc1 == CC_SRC_STATE_RD) || 
+            else if ((cc1 == CC_SRC_STATE_RD) ||
                      (cc2 == CC_SRC_STATE_RD))
             {
-                if ((dev->flags & TC_FLAGS_TRY_SNK) && 
+                if ((dev->flags & TC_FLAGS_TRY_SNK) &&
                     (dev->role == ROLE_DRP))
                 {
                     tcpm_set_state(dev, TCPC_STATE_TRY_SNK);
@@ -510,13 +510,13 @@ static void timeout_cc_debounce(unsigned int port)
 //            if (tcpm_is_vbus_present(port))
             if (dev->vbus_present)
             {
-                // Debug Accessory if SNK.Rp on both CC1 and CC2. 
-                if ((cc1 != CC_SNK_STATE_OPEN) && 
+                // Debug Accessory if SNK.Rp on both CC1 and CC2.
+                if ((cc1 != CC_SNK_STATE_OPEN) &&
                     (cc2 != CC_SNK_STATE_OPEN))
                 {
                     tcpm_set_state(dev, TCPC_STATE_DEBUG_ACC_SNK);
                 }
-                else if ((dev->flags & TC_FLAGS_TRY_SRC) && 
+                else if ((dev->flags & TC_FLAGS_TRY_SRC) &&
                          (dev->role == ROLE_DRP))
                 {
                     tcpm_set_state(dev, TCPC_STATE_TRY_SRC);
@@ -524,7 +524,7 @@ static void timeout_cc_debounce(unsigned int port)
                 else
                 {
                     tcpm_set_state(dev, TCPC_STATE_ATTACHED_SNK);
-                }                
+                }
             }
             else
             {
@@ -533,7 +533,7 @@ static void timeout_cc_debounce(unsigned int port)
         }
         else if (dev->state == TCPC_STATE_AUDIO_ACC)
         {
-            if ((cc1 == CC_SNK_STATE_OPEN) && 
+            if ((cc1 == CC_SNK_STATE_OPEN) &&
                 (cc2 == CC_SNK_STATE_OPEN))
             {
                 if (dev->role == ROLE_SNK)
@@ -564,7 +564,7 @@ static void timeout_drp_try(unsigned int port)
     tcpc_device_t *dev = &tcpc_dev[port];
 
     DEBUG("timeout_cc_debounce\n");
-    
+
 //    non_reentrant_context_save();
 
     if (dev->state == TCPC_STATE_TRY_SNK)
@@ -583,7 +583,7 @@ static void timeout_drp_try(unsigned int port)
         cc2 = TCPC_CC2_STATE(dev->cc_status);
 
         // If neither CC pin is in Rd state.
-        if ((cc1 != CC_SRC_STATE_RD) && 
+        if ((cc1 != CC_SRC_STATE_RD) &&
             (cc2 != CC_SRC_STATE_RD))
         {
             if (dev->state == TCPC_STATE_TRY_SRC)
@@ -627,7 +627,7 @@ static void timeout_pd_debounce(unsigned int port)
             (dev->state == TCPC_STATE_TRY_WAIT_SNK))
         {
             // Check for Rp on exactly one pin.
-            if (((cc1 == CC_SNK_STATE_OPEN) && (cc2 != CC_SNK_STATE_OPEN)) || 
+            if (((cc1 == CC_SNK_STATE_OPEN) && (cc2 != CC_SNK_STATE_OPEN)) ||
                 ((cc1 != CC_SNK_STATE_OPEN) && (cc2 == CC_SNK_STATE_OPEN)))
             {
                 // Enable VBUS detection.
@@ -647,11 +647,11 @@ static void timeout_pd_debounce(unsigned int port)
                 tcpm_set_state(dev, TCPC_STATE_TRY_WAIT_SRC);
             }
         }
-        else if ((dev->state == TCPC_STATE_TRY_SRC) || 
+        else if ((dev->state == TCPC_STATE_TRY_SRC) ||
                  (dev->state == TCPC_STATE_TRY_WAIT_SRC))
         {
             // Check for Rd on exactly one pin.
-            if (((cc1 == CC_SRC_STATE_RD) && (cc2 != CC_SRC_STATE_RD)) || 
+            if (((cc1 == CC_SRC_STATE_RD) && (cc2 != CC_SRC_STATE_RD)) ||
                 ((cc1 != CC_SRC_STATE_RD) && (cc2 == CC_SRC_STATE_RD)))
             {
                 tcpm_set_state(dev, TCPC_STATE_ATTACHED_SRC);
@@ -663,7 +663,7 @@ static void timeout_pd_debounce(unsigned int port)
             /* Disconnected */
 
             if ((dev->state == TCPC_STATE_ATTACHED_SRC) ||
-//                (dev->state == TCPC_STATE_ATTACH_WAIT_SRC) || 
+//                (dev->state == TCPC_STATE_ATTACH_WAIT_SRC) ||
                 (dev->state == TCPC_STATE_UNORIENTED_DEBUG_ACC_SRC) ||
                 (dev->state == TCPC_STATE_ORIENTED_DEBUG_ACC_SRC))
             {
@@ -882,10 +882,10 @@ void tcpm_read_message(unsigned int port, uint8_t *buf, uint8_t len)
     if (byte_cnt > 3)
     {
         tcpc_read_block(port, TCPC_REG_RX_BYTE_CNT, local_buf, byte_cnt + 1);
-    
+
         // Copy message to buffer. (Subtract 3-bytes for frame type and header)
         memcpy(buf, &local_buf[4], (byte_cnt - 3));
-    
+
         DEBUG("rx_buf: 0x");
         for (i = 0; i < (byte_cnt - 3); i++)
         {
@@ -903,7 +903,7 @@ void tcpm_transmit(unsigned int port, uint8_t *buf, tcpc_transmit_t sop_type)
 {
     if (buf)
     {
-        // Write Tx byte cnt, header, and buffer all together. 
+        // Write Tx byte cnt, header, and buffer all together.
         // (Add 1 to length since we are also writing byte cnt)
         tcpc_write_block(port, TCPC_REG_TX_BYTE_CNT, buf, buf[0] + 1);
 //        tcpc_write_block(port, TCPC_REG_TX_BYTE_CNT, &buf[1], buf[0]);
@@ -925,7 +925,7 @@ void tcpm_error_recovery(unsigned int port)
         return;
     }
 /* Dan M gotta fix this
-    non_reentrant_context_save();   
+    non_reentrant_context_save();
 */
     tcpm_set_state(dev, TCPC_STATE_ERROR_RECOVERY);
 
@@ -934,11 +934,11 @@ void tcpm_error_recovery(unsigned int port)
     tcpm_snk_vbus_disable(port);
 
     // AutoDischargeDisconnect=1, Disable VCONN, Disable VBUS voltage monitor/alarms.
-    tcpc_write8(port, TCPC_REG_POWER_CTRL, 
+    tcpc_write8(port, TCPC_REG_POWER_CTRL,
                 (TCPC_PWR_CTRL_AUTO_DISCHARGE_DISCONNECT | TCPC_PWR_CTRL_DEFAULTS));
 
     // Remove CC1 & CC2 terminations.
-    tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+    tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                 tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_OPEN, CC_OPEN));
 
 //    timer_setup(&dev->timer, timeout_error_recovery, port);
@@ -974,21 +974,21 @@ void tcpm_connection_state_machine(unsigned int port)
             timer_cancel(&dev->timer);
 
             if (dev->silicon_revision == 0)
-            {            
+            {
                 /****** TUSB422 PG1.0 workaround for Tx Discarded issue (CDDS #38).  ******/
                 tcpc_read8(port, TCPC_REG_MSG_HDR_INFO, &reg);
-                
+
                 if (reg & PD_PWR_ROLE_SRC)
                 {
                     // Clear message header info.
-                    tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);     
+                    tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);
                 }
                 else /* SINK */
                 {
                     // Remove CC1 & CC2 terminations.
-                    tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+                    tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                                 tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_OPEN, CC_OPEN));
-                
+
                     // Enable Voltage monitoring.
                     tcpm_enable_voltage_monitoring(dev->port);
 
@@ -1006,9 +1006,9 @@ void tcpm_connection_state_machine(unsigned int port)
                     {
                         CRIT("\n### timeout waiting for vSafe0V!\n\n");
                     }
-                
+
                     // Clear message header info.
-                    tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);     
+                    tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, 0);
                 }
             }
 
@@ -1022,21 +1022,21 @@ void tcpm_connection_state_machine(unsigned int port)
                 // Set first CC pin state for autonomous DRP toggle.
                 cc_pull = (dev->state == TCPC_STATE_UNATTACHED_SNK) ? CC_RD : CC_RP;
 
-                tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+                tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                             tcpc_reg_role_ctrl_set(true, dev->rp_val, cc_pull, cc_pull));
             }
             else if (dev->role == ROLE_SNK)
             {
-                tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+                tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                             tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_RD, CC_RD));
             }
             else /* ROLE_SRC */
             {
-                tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+                tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                             tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_RP, CC_RP));
             }
 
-            // AutoDischargeDisconnect=0, Disable VCONN, Disable VBUS voltage monitor/alarms.   
+            // AutoDischargeDisconnect=0, Disable VCONN, Disable VBUS voltage monitor/alarms.
             tcpc_write8(port, TCPC_REG_POWER_CTRL, TCPC_PWR_CTRL_DEFAULTS);
 
             // Set sink disconnect threshold to default (vSafe5V).
@@ -1054,7 +1054,7 @@ void tcpm_connection_state_machine(unsigned int port)
 
         case TCPC_STATE_TRY_WAIT_SRC:
             // Pull up both CC pins to Rp.
-            tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+            tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                         tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_RP, CC_RP));
 
             timer_start(&dev->timer, T_DRP_TRY_MS, timeout_drp_try);
@@ -1062,7 +1062,7 @@ void tcpm_connection_state_machine(unsigned int port)
 
         case TCPC_STATE_TRY_WAIT_SNK:
             // Terminate both CC pins to Rd.
-            tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+            tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                         tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_RD, CC_RD));
 
             timer_start(&dev->timer, T_PD_DEBOUNCE_MS, timeout_pd_debounce);
@@ -1077,24 +1077,24 @@ void tcpm_connection_state_machine(unsigned int port)
                 // CC1 used for USB-PD.
                 dev->plug_polarity = PLUG_UNFLIPPED;
 
-                DEBUG("SRC current: %s\n", 
-                      (cc1 == CC_SNK_STATE_POWER30) ? "3.0A" : 
-                      (cc1 == CC_SNK_STATE_POWER15) ? "1.5A" : 
-                      (cc1 == CC_SNK_STATE_DEFAULT) ? "500/900mA" : "?"); 
+                DEBUG("SRC current: %s\n",
+                      (cc1 == CC_SNK_STATE_POWER30) ? "3.0A" :
+                      (cc1 == CC_SNK_STATE_POWER15) ? "1.5A" :
+                      (cc1 == CC_SNK_STATE_DEFAULT) ? "500/900mA" : "?");
             }
             else /* CC1 voltage < CC2 voltage */
             {
                 // CC2 used for USB-PD.
                 dev->plug_polarity = PLUG_FLIPPED;
 
-                DEBUG("SRC current: %s\n", 
-                      (cc2 == CC_SNK_STATE_POWER30) ? "3.0A" : 
-                      (cc2 == CC_SNK_STATE_POWER15) ? "1.5A" : 
-                      (cc2 == CC_SNK_STATE_DEFAULT) ? "500/900mA" : "?"); 
+                DEBUG("SRC current: %s\n",
+                      (cc2 == CC_SNK_STATE_POWER30) ? "3.0A" :
+                      (cc2 == CC_SNK_STATE_POWER15) ? "1.5A" :
+                      (cc2 == CC_SNK_STATE_DEFAULT) ? "500/900mA" : "?");
             }
 
             // Set plug orientation for attached states.
-            tcpc_write8(port, TCPC_REG_TCPC_CTRL, 
+            tcpc_write8(port, TCPC_REG_TCPC_CTRL,
                         (dev->plug_polarity == PLUG_FLIPPED) ? TCPC_CTRL_PLUG_ORIENTATION : 0);
 
             if (dev->state == TCPC_STATE_ATTACHED_SNK)
@@ -1107,9 +1107,9 @@ void tcpm_connection_state_machine(unsigned int port)
             tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, TCPC_REG_MSG_HDR_INFO_SET(0, PD_DATA_ROLE_UFP, PD_PWR_ROLE_SNK));
 
             // AutoDischargeDisconnect=1, Enable VBUS voltage monitor, Enable Bleed discharge, Disable voltage alarms.
-            tcpc_write8(port, TCPC_REG_POWER_CTRL, 
-                        (TCPC_PWR_CTRL_AUTO_DISCHARGE_DISCONNECT | 
-                         TCPC_PWR_CTRL_ENABLE_BLEED_DISCHARGE | 
+            tcpc_write8(port, TCPC_REG_POWER_CTRL,
+                        (TCPC_PWR_CTRL_AUTO_DISCHARGE_DISCONNECT |
+                         TCPC_PWR_CTRL_ENABLE_BLEED_DISCHARGE |
                          TCPC_PWR_CTRL_DISABLE_VOLTAGE_ALARM));
 
             // Notify upper layers.
@@ -1127,13 +1127,13 @@ void tcpm_connection_state_machine(unsigned int port)
             timer_cancel(&dev->timer);
 
             // Update msg header info for DFP source.
-            tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, TCPC_REG_MSG_HDR_INFO_SET(0, PD_DATA_ROLE_DFP, PD_PWR_ROLE_SRC));               
+            tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, TCPC_REG_MSG_HDR_INFO_SET(0, PD_DATA_ROLE_DFP, PD_PWR_ROLE_SRC));
 
             // AutoDischargeDisconnect=1, VCONN=off, Enable VBUS voltage monitor & voltage alarms.
             tcpc_write8(port, TCPC_REG_POWER_CTRL, TCPC_PWR_CTRL_AUTO_DISCHARGE_DISCONNECT);
 
             // Enable VBUS source.
-            tcpm_src_vbus_5v_enable(port);  
+            tcpm_src_vbus_5v_enable(port);
 
             // Notify upper layers.
             tcpm_notify_conn_state(port, dev->state);
@@ -1153,20 +1153,20 @@ void tcpm_connection_state_machine(unsigned int port)
             }
 
             // Set plug orientation for attached states.
-            tcpc_write8(port, TCPC_REG_TCPC_CTRL, 
+            tcpc_write8(port, TCPC_REG_TCPC_CTRL,
                         (dev->plug_polarity == PLUG_FLIPPED) ? TCPC_CTRL_PLUG_ORIENTATION : 0);
 
             // Update msg header info for DFP source.
-            tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, TCPC_REG_MSG_HDR_INFO_SET(0, PD_DATA_ROLE_DFP, PD_PWR_ROLE_SRC));               
+            tcpc_write8(port, TCPC_REG_MSG_HDR_INFO, TCPC_REG_MSG_HDR_INFO_SET(0, PD_DATA_ROLE_DFP, PD_PWR_ROLE_SRC));
 
             if (dev->state == TCPC_STATE_ATTACHED_SRC)
             {
-                if ((cc1 == CC_SRC_STATE_RA) || 
+                if ((cc1 == CC_SRC_STATE_RA) ||
                     (cc2 == CC_SRC_STATE_RA))
                 {
                     // AutoDischargeDisconnect=1, Enable VCONN, Enable VBUS voltage monitor & alarms.
-                    tcpc_write8(port, TCPC_REG_POWER_CTRL, 
-                                (TCPC_PWR_CTRL_AUTO_DISCHARGE_DISCONNECT | 
+                    tcpc_write8(port, TCPC_REG_POWER_CTRL,
+                                (TCPC_PWR_CTRL_AUTO_DISCHARGE_DISCONNECT |
                                  TCPC_PWR_CTRL_ENABLE_VCONN));
                 }
                 else /* No Ra detected. Do not enable VCONN */
@@ -1176,7 +1176,7 @@ void tcpm_connection_state_machine(unsigned int port)
                 }
 
                 // Enable VBUS source.
-                tcpm_src_vbus_5v_enable(port);     
+                tcpm_src_vbus_5v_enable(port);
 
                 tcpm_enable_vbus_detect(port);
                 while (!tcpm_is_vbus_present(port))
@@ -1199,7 +1199,7 @@ void tcpm_connection_state_machine(unsigned int port)
                 tcpc_write8(port, TCPC_REG_COMMAND, TCPC_CMD_DISABLE_VBUS_DETECT);
 
                 // Remove CC1 & CC2 terminations.
-                tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+                tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                             tcpc_reg_role_ctrl_set(false, dev->rp_val, CC_OPEN, CC_OPEN));
             }
 
@@ -1207,15 +1207,15 @@ void tcpm_connection_state_machine(unsigned int port)
             // Try.SNK - Both CC1 and CC2 terminated to Rd.
             cc_pull = (dev->state == TCPC_STATE_TRY_SNK) ? CC_RD : CC_RP;
 
-            tcpc_write8(port, TCPC_REG_ROLE_CTRL, 
+            tcpc_write8(port, TCPC_REG_ROLE_CTRL,
                         tcpc_reg_role_ctrl_set(false, dev->rp_val, cc_pull, cc_pull));
-            
+
             timer_start(&dev->timer, T_DRP_TRY_MS, timeout_drp_try);
             break;
 
         case TCPC_STATE_TRY_SNK_LOOK4SRC:
             // Check for Rp on exactly one CC pin.
-            if (((cc1 == CC_SNK_STATE_OPEN) && (cc2 != CC_SNK_STATE_OPEN)) || 
+            if (((cc1 == CC_SNK_STATE_OPEN) && (cc2 != CC_SNK_STATE_OPEN)) ||
                 ((cc1 != CC_SNK_STATE_OPEN) && (cc2 == CC_SNK_STATE_OPEN)))
             {
                 timer_start(&dev->timer, T_PD_DEBOUNCE_MS, timeout_pd_debounce);
@@ -1290,7 +1290,7 @@ static void alert_cc_status_handler(tcpc_device_t *dev)
             case TCPC_STATE_UNATTACHED_SNK:
                 if (cc_status & CC_STATUS_CONNECT_RESULT)
                 {
-                    if ((cc1 != CC_SNK_STATE_OPEN) || 
+                    if ((cc1 != CC_SNK_STATE_OPEN) ||
                         (cc2 != CC_SNK_STATE_OPEN))
                     {
                         // Enable VBUS detection.
@@ -1298,7 +1298,7 @@ static void alert_cc_status_handler(tcpc_device_t *dev)
 
                         tcpm_set_state(dev, TCPC_STATE_ATTACH_WAIT_SNK);
 
-                        // Debounce CC. 
+                        // Debounce CC.
                         timer_start(&dev->timer, T_CC_DEBOUNCE_MS, timeout_cc_debounce);
                     }
                 }
@@ -1310,19 +1310,19 @@ static void alert_cc_status_handler(tcpc_device_t *dev)
                     {
                         tcpm_set_state(dev, TCPC_STATE_ATTACH_WAIT_SRC);
 
-                        // Debounce CC. 
+                        // Debounce CC.
                         timer_start(&dev->timer, T_CC_DEBOUNCE_MS, timeout_cc_debounce);
-                    }                   
+                    }
                 }
                 break;
 
             case TCPC_STATE_ATTACHED_SNK:
             case TCPC_STATE_DEBUG_ACC_SNK:
                 // If open state on CC1 and CC2.
-                if ((cc1 == CC_SNK_STATE_OPEN) && 
+                if ((cc1 == CC_SNK_STATE_OPEN) &&
                     (cc2 == CC_SNK_STATE_OPEN))
                 {
-                    // Do nothing. Wait for VBUS removal. 
+                    // Do nothing. Wait for VBUS removal.
                 }
                 else
                 {
@@ -1339,7 +1339,7 @@ static void alert_cc_status_handler(tcpc_device_t *dev)
                 break;
 
             case TCPC_STATE_UNORIENTED_DEBUG_ACC_SRC:
-                if ((cc1 == CC_SRC_STATE_RA) || 
+                if ((cc1 == CC_SRC_STATE_RA) ||
                     (cc2 == CC_SRC_STATE_RA))
                 {
                     tcpm_set_state(dev, TCPC_STATE_ORIENTED_DEBUG_ACC_SRC);
@@ -1347,10 +1347,10 @@ static void alert_cc_status_handler(tcpc_device_t *dev)
                 break;
 
 //            case TCPC_STATE_AUDIO_ACC:
-//                if ((cc1 == CC_STATE_OPEN) && 
+//                if ((cc1 == CC_STATE_OPEN) &&
 //                    (cc2 == CC_STATE_OPEN))
 //                {
-//                    // Debounce. 
+//                    // Debounce.
 //                    // (unlike other attached states, Audio Acc debounces for tCCDebounce)
 //                    timer_start(&dev->timer, T_CC_DEBOUNCE_MS, timeout_cc_debounce);
 //                }
@@ -1362,16 +1362,16 @@ static void alert_cc_status_handler(tcpc_device_t *dev)
 //            case TCPC_STATE_TRY_WAIT_SNK:
 //            case TCPC_STATE_ATTACH_WAIT_SNK_WAIT4VBUS:
 //                // If open state on CC1 and CC2.
-//                if ((cc1 == CC_STATE_OPEN) && 
+//                if ((cc1 == CC_STATE_OPEN) &&
 //                    (cc2 == CC_STATE_OPEN))
 //                {
-//                    // Debounce. 
+//                    // Debounce.
 //                    timer_start(&dev->timer, T_PD_DEBOUNCE_MS, timeout_pd_debounce);
 //                }
 //
 //                if (dev->state == TCPC_STATE_UNORIENTED_DEBUG_ACC_SRC)
 //                {
-//                    if ((cc1 == CC_SRC_STATE_RA) || 
+//                    if ((cc1 == CC_SRC_STATE_RA) ||
 //                        (cc2 == CC_SRC_STATE_RA))
 //                    {
 //                        tcpm_set_state(dev, TCPC_STATE_ORIENTED_DEBUG_ACC_SRC);
@@ -1385,10 +1385,10 @@ static void alert_cc_status_handler(tcpc_device_t *dev)
 
             case TCPC_STATE_TRY_SNK_LOOK4SRC:
                 // Check for Rp on exactly one CC pin.
-                if (((cc1 == CC_SNK_STATE_OPEN) && (cc2 != CC_SNK_STATE_OPEN)) || 
+                if (((cc1 == CC_SNK_STATE_OPEN) && (cc2 != CC_SNK_STATE_OPEN)) ||
                     ((cc1 != CC_SNK_STATE_OPEN) && (cc2 == CC_SNK_STATE_OPEN)))
                 {
-                    // Debounce. 
+                    // Debounce.
                     timer_start(&dev->timer, T_PD_DEBOUNCE_MS, timeout_pd_debounce);
                 }
                 break;
@@ -1396,16 +1396,16 @@ static void alert_cc_status_handler(tcpc_device_t *dev)
             case TCPC_STATE_TRY_SRC:
             case TCPC_STATE_TRY_WAIT_SRC:
                 // Check for Rd on exactly one CC pin.
-                if (((cc1 == CC_SRC_STATE_RD) && (cc2 != CC_SRC_STATE_RD)) || 
+                if (((cc1 == CC_SRC_STATE_RD) && (cc2 != CC_SRC_STATE_RD)) ||
                     ((cc1 != CC_SRC_STATE_RD) && (cc2 == CC_SRC_STATE_RD)))
                 {
-                    // Debounce. 
+                    // Debounce.
                     timer_start(&dev->timer, T_PD_DEBOUNCE_MS, timeout_pd_debounce);
                 }
                 break;
 
             case TCPC_STATE_ATTACH_WAIT_SRC:
-                if (((cc1 == CC_STATE_OPEN) && (cc2 == CC_STATE_OPEN)) || 
+                if (((cc1 == CC_STATE_OPEN) && (cc2 == CC_STATE_OPEN)) ||
                     ((cc1 == CC_STATE_OPEN) && (cc2 == CC_SRC_STATE_RA)) ||
                     ((cc1 == CC_SRC_STATE_RA) && (cc2 == CC_STATE_OPEN)))
                 {
@@ -1427,9 +1427,9 @@ static void alert_cc_status_handler(tcpc_device_t *dev)
         // ALL attached SRC states.  oriented, unoriented debug.src.
         // AttachWait SNK
         // TryWait.SNK
-        
+
         // If open state on CC1 and CC2.
-        if ((cc1 == CC_STATE_OPEN) && 
+        if ((cc1 == CC_STATE_OPEN) &&
             (cc2 == CC_STATE_OPEN))
         {
             if ((dev->state != TCPC_STATE_UNATTACHED_SRC) ||
@@ -1437,13 +1437,13 @@ static void alert_cc_status_handler(tcpc_device_t *dev)
             {
                 if (dev->state == TCPC_STATE_AUDIO_ACC)
                 {
-                    // Debounce. 
+                    // Debounce.
                     // (unlike other attached states, Audio Acc debounces for tCCDebounce)
                     timer_start(&dev->timer, T_CC_DEBOUNCE_MS, timeout_cc_debounce);
                 }
                 else
                 {
-                    // Debounce. 
+                    // Debounce.
                     timer_start(&dev->timer, T_PD_DEBOUNCE_MS, timeout_pd_debounce);
                 }
             }
@@ -1478,13 +1478,13 @@ static void alert_power_status_handler(tcpc_device_t *dev)
         if ((dev->state == TCPC_STATE_ATTACH_WAIT_SNK_WAIT4VBUS) ||
             (dev->state == TCPC_STATE_WAITING_FOR_VBUS_SNK))
         {
-            // Debug Accessory if SNK.Rp on both CC1 and CC2. 
-            if ((cc1 != CC_SNK_STATE_OPEN) && 
+            // Debug Accessory if SNK.Rp on both CC1 and CC2.
+            if ((cc1 != CC_SNK_STATE_OPEN) &&
                 (cc2 != CC_SNK_STATE_OPEN))
             {
                 tcpm_set_state(dev, TCPC_STATE_DEBUG_ACC_SNK);
             }
-            else if ((dev->flags & TC_FLAGS_TRY_SRC) && 
+            else if ((dev->flags & TC_FLAGS_TRY_SRC) &&
                      (dev->role == ROLE_DRP) &&
                      (dev->state == TCPC_STATE_ATTACH_WAIT_SNK_WAIT4VBUS))
             {
@@ -1518,7 +1518,7 @@ static void alert_fault_status_handler(tcpc_device_t *dev)
 
     tcpc_read8(dev->port, TCPC_REG_FAULT_STATUS, &status);
 
-    CRIT("Fault_Status = 0x%02x\n", status);    
+    CRIT("Fault_Status = 0x%02x\n", status);
 
     if (status & TCPC_AUTO_DIS_FAIL_STATUS)
     {
@@ -1550,7 +1550,7 @@ static void tcpm_alert_handler(unsigned int port)
     {
         tcpc_write16(port, TCPC_REG_ALERT, clear_bits);
     }
-                 
+
     if (alert & TUSB422_ALERT_IRQ_STATUS)
     {
         tusb422_isr(port);
@@ -1652,7 +1652,7 @@ int tcpm_port_init(unsigned int port, const tcpc_config_t *config)
     dev->timer.data = port;
     dev->state = TCPC_STATE_DISABLED;
     dev->vbus_present = false;
-    
+
     if (dev->role == ROLE_SNK)
     {
         tcpm_set_state(dev,TCPC_STATE_UNATTACHED_SNK);
@@ -1662,12 +1662,12 @@ int tcpm_port_init(unsigned int port, const tcpc_config_t *config)
         tcpm_set_state(dev,TCPC_STATE_UNATTACHED_SRC);
     }
 
-    CRIT("Port[%u]: addr: 0x%02x, %s, Rp: %s, Flags: %s.\n", 
-         port, config->slave_addr, 
-         (dev->role == ROLE_SRC) ? "SRC" : 
-         (dev->role == ROLE_SNK) ? "SNK" : "DRP", 
-         (dev->rp_val == RP_DEFAULT_CURRENT) ? "default" : 
-         (dev->rp_val == RP_MEDIUM_CURRENT) ? "1.5A" : "3.0A", 
+    CRIT("Port[%u]: addr: 0x%02x, %s, Rp: %s, Flags: %s.\n",
+         port, config->slave_addr,
+         (dev->role == ROLE_SRC) ? "SRC" :
+         (dev->role == ROLE_SNK) ? "SNK" : "DRP",
+         (dev->rp_val == RP_DEFAULT_CURRENT) ? "default" :
+         (dev->rp_val == RP_MEDIUM_CURRENT) ? "1.5A" : "3.0A",
          (dev->flags & TC_FLAGS_TRY_SRC) ? "Try_SRC" : (dev->flags & TC_FLAGS_TRY_SNK) ? "Try_SNK" : "None");
 
     // Read VID/PID/DID.
@@ -1675,12 +1675,12 @@ int tcpm_port_init(unsigned int port, const tcpc_config_t *config)
     if (id != 0x0451)
 	return 1;
 
-    CRIT("VID: 0x%04x\n", id); 
+    CRIT("VID: 0x%04x\n", id);
 
     tcpc_read16(port, TCPC_REG_PRODUCT_ID, &id);
-    CRIT("PID: 0x%04x\n", id); 
+    CRIT("PID: 0x%04x\n", id);
     tcpc_read16(port, TCPC_REG_DEVICE_ID, &id);
-    CRIT("DID: 0x%04x\n", id); 
+    CRIT("DID: 0x%04x\n", id);
 
     // Wait for TCPC init status to clear.
     do
@@ -1709,7 +1709,7 @@ int tcpm_init(const tcpc_config_t *config)
 */
 #ifdef LED_DEBUG
     timer_led_blink.data = 0;
-#endif 
+#endif
 
     // Init all TCPC devices.
     for (port = 0; port < NUM_TCPC_DEVICES; port++)
@@ -1741,7 +1741,7 @@ bool tcpm_alert_event(unsigned int port) {
 //#if NUM_TCPC_DEVICES == 1
 //    unsigned int loop_cnt = 2;
 /* Dan M gotta fix this
-    non_reentrant_context_save();   
+    non_reentrant_context_save();
 */
 //    do
 //    {

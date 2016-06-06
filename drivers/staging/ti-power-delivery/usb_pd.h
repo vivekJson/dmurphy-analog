@@ -1,7 +1,7 @@
 /*
  * Texas Instruments TUSB422 Power Delivery
  *
- * Author: 
+ * Author:
  * Copyright: (C) 2016 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -34,7 +34,7 @@
 #define N_RETRY_COUNT    2   /* nRetryCount=2 per USBPD3 spec */
 #else /* Rev 2.0 */
 #define N_RETRY_COUNT    3   /* nRetryCount=3 per USBPD3 spec */
-#endif 
+#endif
 #endif
 
 /* Control msg when number of data objects is zero */
@@ -42,7 +42,7 @@ typedef enum
 {
     CTRL_MSG_TYPE_GOOD_CRC        = 0x01,
     CTRL_MSG_TYPE_GOTO_MIN        = 0x02, /* SOP only */
-    CTRL_MSG_TYPE_ACCEPT          = 0x03, 
+    CTRL_MSG_TYPE_ACCEPT          = 0x03,
     CTRL_MSG_TYPE_REJECT          = 0x04, /* SOP only */
     CTRL_MSG_TYPE_PING            = 0x05, /* SOP only */
     CTRL_MSG_TYPE_PS_RDY          = 0x06, /* SOP only */
@@ -90,7 +90,7 @@ typedef enum
 /* Data role field is reserved for SOP'/SOP" */
 #define USB_PD_HDR_GEN_BYTE0(data_role, msg_type)  ( ((PD_SPEC_VER) << 6) | ((data_role) << 5) | (msg_type) )
 
-#define USB_PD_HDR_GEN_BYTE1(ext, num_data_obj, msg_id, power_role)  ( ((ext) << 7) | ((num_data_obj) << 4) | ((msg_id & 0x07) << 1) | (power_role) ) 
+#define USB_PD_HDR_GEN_BYTE1(ext, num_data_obj, msg_id, power_role)  ( ((ext) << 7) | ((num_data_obj) << 4) | ((msg_id & 0x07) << 1) | (power_role) )
 
 /* Ext = 0 */
 #define USB_PD_HDR_GEN(data_role, msg_type, num_data_obj, msg_id, power_role)  ((USB_PD_HDR_GEN_BYTE1(0, num_data_obj, msg_id, power_role) << 8) | (USB_PD_HDR_GEN_BYTE0(data_role, msg_type)))

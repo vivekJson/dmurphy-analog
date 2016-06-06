@@ -1,7 +1,7 @@
 /*
  * Texas Instruments TUSB422 Power Delivery
  *
- * Author: 
+ * Author:
  * Copyright: (C) 2016 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -33,58 +33,58 @@ typedef enum
     TCPC_REG_USB_TYPEC_REV               = 0x06,
     TCPC_REG_PD_REV_VER                  = 0x08,
     TCPC_REG_PD_INTERFACE_REV            = 0x0a,
-    TCPC_REG_ALERT                       = 0x10,  
-    TCPC_REG_ALERT_MASK                  = 0x12, 
-    TCPC_REG_POWER_STATUS_MASK           = 0x14, 
-    TCPC_REG_FAULT_STATUS_MASK           = 0x15, 
-    TCPC_REG_CONFIG_STD_OUTPUT           = 0x18,  
-    TCPC_REG_TCPC_CTRL                   = 0x19, 
-    TCPC_REG_ROLE_CTRL                   = 0x1a, 
-    TCPC_REG_FAULT_CTRL                  = 0x1b, 
-    TCPC_REG_POWER_CTRL                  = 0x1c, 
-    TCPC_REG_CC_STATUS                   = 0x1d, 
-    TCPC_REG_POWER_STATUS                = 0x1e, 
+    TCPC_REG_ALERT                       = 0x10,
+    TCPC_REG_ALERT_MASK                  = 0x12,
+    TCPC_REG_POWER_STATUS_MASK           = 0x14,
+    TCPC_REG_FAULT_STATUS_MASK           = 0x15,
+    TCPC_REG_CONFIG_STD_OUTPUT           = 0x18,
+    TCPC_REG_TCPC_CTRL                   = 0x19,
+    TCPC_REG_ROLE_CTRL                   = 0x1a,
+    TCPC_REG_FAULT_CTRL                  = 0x1b,
+    TCPC_REG_POWER_CTRL                  = 0x1c,
+    TCPC_REG_CC_STATUS                   = 0x1d,
+    TCPC_REG_POWER_STATUS                = 0x1e,
     TCPC_REG_FAULT_STATUS                = 0x1f,
-    TCPC_REG_COMMAND                     = 0x23, 
-    TCPC_REG_DEV_CAP_1                   = 0x24, 
-    TCPC_REG_DEV_CAP_2                   = 0x26, 
-    TCPC_REG_STD_INPUT_CAP               = 0x28, 
-    TCPC_REG_STD_OUTPUT_CAP              = 0x29, 
-    TCPC_REG_MSG_HDR_INFO                = 0x2e, 
-    TCPC_REG_RX_DETECT                   = 0x2f, 
-    TCPC_REG_RX_DETECT_SOP_HRST_MASK     = 0x21, 
-    TCPC_REG_RX_BYTE_CNT                 = 0x30, 
-    TCPC_REG_RX_BUF_FRAME_TYPE           = 0x31, 
-    TCPC_REG_RX_HDR                      = 0x32, 
-    TCPC_REG_RX_DATA                     = 0x34, /* through 0x4f */ 
-    TCPC_REG_TRANSMIT                    = 0x50, 
-    TCPC_REG_TX_BYTE_CNT                 = 0x51, 
-    TCPC_REG_TX_HDR                      = 0x52, 
-    TCPC_REG_TX_DATA                     = 0x54, /* through 0x6f */ 
-    TCPC_REG_VBUS_VOLTAGE                = 0x70, 
-    TCPC_REG_VBUS_SINK_DISCONNECT_THRESH = 0x72, 
-    TCPC_REG_VBUS_STOP_DISCHARGE_THRESH  = 0x74, 
-    TCPC_REG_VBUS_VOLTAGE_ALARM_HI_CFG   = 0x76, 
-    TCPC_REG_VBUS_VOLTAGE_ALARM_LO_CFG   = 0x78, 
+    TCPC_REG_COMMAND                     = 0x23,
+    TCPC_REG_DEV_CAP_1                   = 0x24,
+    TCPC_REG_DEV_CAP_2                   = 0x26,
+    TCPC_REG_STD_INPUT_CAP               = 0x28,
+    TCPC_REG_STD_OUTPUT_CAP              = 0x29,
+    TCPC_REG_MSG_HDR_INFO                = 0x2e,
+    TCPC_REG_RX_DETECT                   = 0x2f,
+    TCPC_REG_RX_DETECT_SOP_HRST_MASK     = 0x21,
+    TCPC_REG_RX_BYTE_CNT                 = 0x30,
+    TCPC_REG_RX_BUF_FRAME_TYPE           = 0x31,
+    TCPC_REG_RX_HDR                      = 0x32,
+    TCPC_REG_RX_DATA                     = 0x34, /* through 0x4f */
+    TCPC_REG_TRANSMIT                    = 0x50,
+    TCPC_REG_TX_BYTE_CNT                 = 0x51,
+    TCPC_REG_TX_HDR                      = 0x52,
+    TCPC_REG_TX_DATA                     = 0x54, /* through 0x6f */
+    TCPC_REG_VBUS_VOLTAGE                = 0x70,
+    TCPC_REG_VBUS_SINK_DISCONNECT_THRESH = 0x72,
+    TCPC_REG_VBUS_STOP_DISCHARGE_THRESH  = 0x74,
+    TCPC_REG_VBUS_VOLTAGE_ALARM_HI_CFG   = 0x76,
+    TCPC_REG_VBUS_VOLTAGE_ALARM_LO_CFG   = 0x78,
 } tcpc_reg_t;
 
 
 typedef enum
 {
-    TCPC_ALERT_VBUS_DISCONNECT = (1 << 11), 
-    TCPC_ALERT_RX_BUF_OVERFLOW = (1 << 10), 
-    TCPC_ALERT_FAULT           = (1 << 9), 
-    TCPC_ALERT_VOLT_ALARM_LO   = (1 << 8), 
-    TCPC_ALERT_VOLT_ALARM_HI   = (1 << 7), 
-    TCPC_ALERT_TX_SUCCESS      = (1 << 6), 
-    TCPC_ALERT_TX_DISCARDED    = (1 << 5), 
-    TCPC_ALERT_TX_FAILED       = (1 << 4), 
-    TCPC_ALERT_RX_HARD_RESET   = (1 << 3), 
-    TCPC_ALERT_RX_STATUS       = (1 << 2), 
-    TCPC_ALERT_POWER_STATUS    = (1 << 1), 
-    TCPC_ALERT_CC_STATUS       = (1 << 0), 
+    TCPC_ALERT_VBUS_DISCONNECT = (1 << 11),
+    TCPC_ALERT_RX_BUF_OVERFLOW = (1 << 10),
+    TCPC_ALERT_FAULT           = (1 << 9),
+    TCPC_ALERT_VOLT_ALARM_LO   = (1 << 8),
+    TCPC_ALERT_VOLT_ALARM_HI   = (1 << 7),
+    TCPC_ALERT_TX_SUCCESS      = (1 << 6),
+    TCPC_ALERT_TX_DISCARDED    = (1 << 5),
+    TCPC_ALERT_TX_FAILED       = (1 << 4),
+    TCPC_ALERT_RX_HARD_RESET   = (1 << 3),
+    TCPC_ALERT_RX_STATUS       = (1 << 2),
+    TCPC_ALERT_POWER_STATUS    = (1 << 1),
+    TCPC_ALERT_CC_STATUS       = (1 << 0),
 
-    TCPC_ALERT_MASK_ALL        = 0x0fff 
+    TCPC_ALERT_MASK_ALL        = 0x0fff
 } tcpc_alert_bits_t;
 
 typedef enum
@@ -156,7 +156,7 @@ typedef enum
     TCPC_PWR_CTRL_ENABLE_BLEED_DISCHARGE    = (1 << 3),
     TCPC_PWR_CTRL_FORCE_DISCHARGE           = (1 << 2),
     TCPC_PWR_CTRL_VCONN_SUPPORTED           = (1 << 1),
-    TCPC_PWR_CTRL_ENABLE_VCONN              = (1 << 0) 
+    TCPC_PWR_CTRL_ENABLE_VCONN              = (1 << 0)
 } tcpc_pwr_ctrl_t;
 
 #define TCPC_PWR_CTRL_DEFAULTS  (TCPC_PWR_CTRL_VBUS_VOLTAGE_MONITOR | TCPC_PWR_CTRL_DISABLE_VOLTAGE_ALARM) /* per TCPC spec */
@@ -172,7 +172,7 @@ typedef enum
     TCPC_CMD_SRC_VBUS_DEFAULT    = 0x77,
     TCPC_CMD_SRC_VBUS_HI_VOLTAGE = 0x88,
     TCPC_CMD_SRC_LOOK4CONNECTION = 0x99,
-    TCPC_CMD_RX_ONE_MORE         = 0xAA, 
+    TCPC_CMD_RX_ONE_MORE         = 0xAA,
     TCPC_CMD_I2C_IDLE            = 0xFF
 } tcpc_command_t;
 
@@ -196,7 +196,7 @@ typedef enum
     TCPC_RX_EN_SOP_DEBUG_P  = (1 << 3),
     TCPC_RX_EN_SOP_PP       = (1 << 2),
     TCPC_RX_EN_SOP_P        = (1 << 1),
-    TCPC_RX_EN_SOP          = (1 << 0) 
+    TCPC_RX_EN_SOP          = (1 << 0)
 } tcpc_rx_detect_en_t;
 
 typedef enum
@@ -219,7 +219,7 @@ typedef enum
 
 
 /* Retry cnt is ignored for hard reset, cable reset, and BIST */
-#define TCPC_REG_TRANSMIT_SET(sop_msg) ( ((N_RETRY_COUNT) << 4) | (sop_msg) )  
+#define TCPC_REG_TRANSMIT_SET(sop_msg) ( ((N_RETRY_COUNT) << 4) | (sop_msg) )
 
 #define TCPC_REG_MSG_HDR_INFO_SET(cable_plug, data_role, power_role)  ( ((cable_plug) << 4) | ((data_role) << 3) | ((PD_SPEC_VER) << 1) | power_role )
 

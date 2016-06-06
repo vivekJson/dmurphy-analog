@@ -1,7 +1,7 @@
 /*
  * Texas Instruments TUSB422 Power Delivery
  *
- * Author: 
+ * Author:
  * Copyright: (C) 2016 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 #include "tcpci.h"
 #include "tcpm.h"
 
-struct tusb422_timer_t *lfo_timer[NUM_TCPC_DEVICES]; 
+struct tusb422_timer_t *lfo_timer[NUM_TCPC_DEVICES];
 
 void tusb422_lfo_timer_start(struct tusb422_timer_t *timer, int timeout_ms, void (*function)(unsigned int))
 {
@@ -30,7 +30,7 @@ void tusb422_lfo_timer_start(struct tusb422_timer_t *timer, int timeout_ms, void
 
     // Save timer pointer.
     lfo_timer[port] = timer;
-    
+
     // Start timer.
     tcpc_write16(port, TUSB422_REG_LFO_TIMER, timeout_ms);
 
@@ -79,7 +79,7 @@ void tusb422_init(unsigned int port)
 
     tcpc_write8(port, 0xFF, 1);   /* Page 1 */
     tcpc_read8(port, 0xE7, &efuse);
-    if (!(efuse & EFUSE_REG_E7_TRIMMED_BIT)) {	
+    if (!(efuse & EFUSE_REG_E7_TRIMMED_BIT)) {
         // Write TRIM values.
         tcpc_write8(port, 0xE0, 0xC0);
         tcpc_write8(port, 0xE1, 0x8);
@@ -158,7 +158,7 @@ void tusb422_isr(unsigned int port)
     {
         DEBUG("422: FR Swap Rx'd!\n");
     }
-      
+
     // Clear interrupt status.
     tcpc_write8(port, TUSB422_REG_INT_STATUS, irq_status);
 

@@ -21,27 +21,27 @@
 #include "tusb422_linux.h"
 
 /** Debug print functions **/
-#ifndef DEBUG_LEVEL 
+#ifndef DEBUG_LEVEL
 #define DEBUG_LEVEL 0
 #endif
 
 #if DEBUG_LEVEL >= 1
     // Variadic macro requires "--gcc" compiler switch.
-    #define CRIT(str, args...)  printk(str, ##args)  
+    #define CRIT(str, args...)  printk(str, ##args)
 #else
     #define CRIT(str, args...)  {}
 #endif
 
 #if DEBUG_LEVEL >= 2
     // Variadic macro requires "--gcc" compiler switch.
-    #define DEBUG(str, args...)  printk(str, ##args)  
+    #define DEBUG(str, args...)  printk(str, ##args)
 #else
     #define DEBUG(str, args...)  {}
 #endif
 
 #if DEBUG_LEVEL >= 3
     // Variadic macro requires "--gcc" compiler switch.
-    #define INFO(str, args...)  printk(str, ##args)  
+    #define INFO(str, args...)  printk(str, ##args)
 #else
     #define INFO(str, args...)  {}
 #endif
@@ -54,7 +54,7 @@ typedef enum
 
 typedef enum
 {
-    ROLE_SRC = 0, 
+    ROLE_SRC = 0,
     ROLE_SNK,     /* Accessories are not supported */
     ROLE_DRP      /* Dual Role Power */
 } tc_role_t;
@@ -85,15 +85,15 @@ enum vbus_select_t {
 
 enum supply_type_t {
 	SUPPLY_TYPE_FIXED    = 0,
-	SUPPLY_TYPE_BATTERY  = 1,  
-	SUPPLY_TYPE_VARIABLE = 2, 
+	SUPPLY_TYPE_BATTERY  = 1,
+	SUPPLY_TYPE_VARIABLE = 2,
 };
 
 enum peak_current_t {
 	PEAK_CURRENT_0 = 0,   /*! Peak current = Ioc default  */
 	PEAK_CURRENT_1 = 1,   /*! Peak current = 110% Ioc for 10ms */
 	PEAK_CURRENT_2 = 2,   /*! Peak current = 125% Ioc for 10ms */
-	PEAK_CURRENT_3 = 3    /*! Peak current = 150% Ioc for 10ms */   
+	PEAK_CURRENT_3 = 3    /*! Peak current = 150% Ioc for 10ms */
 };
 
 struct src_pdo_t {
@@ -114,7 +114,7 @@ struct snk_pdo_t {
 	uint16_t        MinOperatingCurrent; /*! Mininum Current  (fixed, variable)    */
 	uint16_t        OperationalCurrent;  /*! Current  (fixed, variable)    */
 	uint16_t        MaxOperatingPower;   /*! Maximum Power    (battery only)       */
-	uint16_t        MinOperatingPower;   /*! Minimum Power    (battery only)       */  
+	uint16_t        MinOperatingPower;   /*! Minimum Power    (battery only)       */
 	uint16_t        OperationalPower;    /*! Power    (battery only)       */
 };
 
@@ -152,7 +152,7 @@ typedef struct
     bool            unchunked_msg_support;  /*! always false for TUSB422 */
 
     /* Source Caps */
-    bool            usb_suspend_supported;  
+    bool            usb_suspend_supported;
     uint8_t         num_src_pdos;
     struct src_pdo_t       src_caps[PD_MAX_PDO_NUM];
     uint16_t        src_settling_time_ms;     /*! Power supply settling time in ms */
@@ -170,7 +170,7 @@ typedef struct
 
 /** I2C Access functions **/
 
-// Type-C port maps to an I2C master and I2C slave address of the TCPC device.  
+// Type-C port maps to an I2C master and I2C slave address of the TCPC device.
 void tcpc_config(unsigned int port, smbus_interface_t intf, uint8_t slave_addr);
 
 
@@ -203,7 +203,7 @@ int8_t tcpc_read16(unsigned int port, uint8_t reg, uint16_t *data);
 
 //*****************************************************************************
 //
-//! \brief   I2C command that reads block of data. 
+//! \brief   I2C command that reads block of data.
 //!
 //! \param   port - Type-C port number.
 //! \param   reg - TCPC register
@@ -260,7 +260,7 @@ int8_t tcpc_write_block(unsigned int port,
                         uint8_t *data,
                         uint8_t len);
 
-// Modifies an 8-bit register.  
+// Modifies an 8-bit register.
 void tcpc_modify8(unsigned int port,
                   uint8_t reg,
                   uint8_t clr_mask,
@@ -286,26 +286,26 @@ struct tusb422_timer_t {
 //
 //! \brief Starts a timer.
 //!
-//! \param timer        pointer to timer struct.              
-//! \param timeout_ms   time in milliseconds              
-//! \param function     pointer to function to call upon expiration  
-//!                
+//! \param timer        pointer to timer struct.
+//! \param timeout_ms   time in milliseconds
+//! \param function     pointer to function to call upon expiration
+//!
 //! \return timer list index or -1 if no timers available
 //
 // ****************************************************************************
-int timer_start(struct tusb422_timer_t *timer, unsigned int timeout_ms, void (*function)(unsigned int));   
+int timer_start(struct tusb422_timer_t *timer, unsigned int timeout_ms, void (*function)(unsigned int));
 
 //*****************************************************************************
 //
 //! \brief Cancels a timer.
 //!
-//! \param timer pointer to timer            
+//! \param timer pointer to timer
 //
 // ****************************************************************************
 void timer_cancel(struct tusb422_timer_t *timer);
 
-// These functions will control platform-specific GPIOs to sink or source VBUS.  
-// Cannot make these more generic since power controls may be active high/low or 
+// These functions will control platform-specific GPIOs to sink or source VBUS.
+// Cannot make these more generic since power controls may be active high/low or
 // open drain and require multiple GPIOs.
 void tcpm_hal_vbus_enable(uint8_t port, enum vbus_select_t sel);
 void tcpm_hal_vbus_disable(uint8_t port, enum vbus_select_t sel);

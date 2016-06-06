@@ -187,35 +187,23 @@ static const struct reg_default tusb422_reg_defs[] = {
 
 int tusb422_write(int reg, int value, int num_of_regs)
 {
-//	printk("%s:reg 0x%X, val 0x%X, num of regs %i\n", __func__, reg, value, num_of_regs);
-	regmap_raw_write_async(tusb422_pd->regmap, reg, &value, num_of_regs);
-
-	return 0;
+	return regmap_raw_write_async(tusb422_pd->regmap, reg, &value, num_of_regs);
 };
 
 int tusb422_write_block(int reg, int *data, int num_of_regs)
 {
-//	printk("%s:reg 0x%X, val 0x%X, num of regs %i\n", __func__, reg, value, num_of_regs);
-	regmap_raw_write_async(tusb422_pd->regmap, reg, data, num_of_regs);
-
-	return 0;
+	return regmap_raw_write_async(tusb422_pd->regmap, reg, data, num_of_regs);
 };
 
 int tusb422_read(int reg, int *value, int num_of_regs)
 {
-	int ret;
-
-//	printk("%s: reg 0x%X, num of regs %i\n", __func__, reg, num_of_regs);
-	ret = regmap_raw_read(tusb422_pd->regmap, reg, value, num_of_regs);
-//	printk("%s: value 0x%X %i\n", __func__, (uint16_t) *value, ret);
-
-	return ret;
+	return regmap_raw_read(tusb422_pd->regmap, reg, value, num_of_regs);
 };
 
 int tusb422_modify_reg(int reg, int clr_mask, int set_mask)
 {
-	regmap_update_bits(tusb422_pd->regmap, reg, (clr_mask | set_mask), set_mask);
-	return 0;
+	return regmap_update_bits(tusb422_pd->regmap,
+			reg, (clr_mask | set_mask), set_mask);
 };
 
 void tusb422_set_timer_func(void (*function)(unsigned int))
@@ -230,16 +218,12 @@ void tusb422_clr_timer_func(void)
 
 int tusb422_start_timer(unsigned int timeout_ms)
 {
-//	printk("%s: Enter\n", __func__);
-
     hrtimer_try_to_cancel(&tusb422_pd->timer);
-//    hrtimer_cancel(&tusb422_pd->timer);
 
-	if (hrtimer_active(&tusb422_pd->timer))
-    {
-        printk("##### Timer active\n");
+	if (hrtimer_active(&tusb422_pd->timer)) {
+		printk("##### Timer active\n");
 		return -1;
-    }
+	}
 
 	hrtimer_start(&tusb422_pd->timer, ms_to_ktime(timeout_ms), HRTIMER_MODE_REL);
 
@@ -248,22 +232,18 @@ int tusb422_start_timer(unsigned int timeout_ms)
 
 int tusb422_stop_timer(void)
 {
-//	printk("%s: Enter\n", __func__);
 	hrtimer_cancel(&tusb422_pd->timer);
-
 	return 0;
 };
 
-// BQ - use for short sleeps < 20ms.
+/* BQ - use for short sleeps < 20ms. */
 void tusb422_msleep(int msecs)
 {
-    udelay(msecs * 1000);
-}
+	udelay(msecs * 1000);
+};
 
 int tusb422_set_vbus(int vbus_sel)
 {
-//	printk("%s: sel = %i\n", __func__, vbus_sel);
-
 	if (vbus_sel == VBUS_SRC_5V) {
 		/* Disable high voltage. */
 		gpiod_direction_output(tusb422_pd->vbus_hv_gpio, 0);
@@ -288,8 +268,6 @@ int tusb422_set_vbus(int vbus_sel)
 
 int tusb422_clr_vbus(int vbus_sel)
 {
-//	printk("%s: sel = %i\n", __func__, vbus_sel);
-
 	if (vbus_sel == VBUS_SRC_5V) {
 		/* Disable SRC switch. */
 		gpiod_direction_output(tusb422_pd->vbus_src_gpio, 1);
@@ -308,8 +286,6 @@ int tusb422_clr_vbus(int vbus_sel)
 
 static irqreturn_t tusb422_event_handler(int irq, void *private)
 {
-//	printk("%s: Enter\n", __func__);
-
 	tusb422_pd->alert_status = 1;
 
 	tcpm_alert_event(0);
@@ -490,7 +466,7 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 					   &max_volt);
 		if (ret)
 			return ret;
-	
+
 		ret = of_property_read_u32(pp, "ti,pdo_number",
 					   &pdo);
 		if (ret)
@@ -516,7 +492,7 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 			} else {
 				printk("%s: Undefined current flow\n", __func__);
 			}
-	
+
 	/*MaxPower
 	MaxOperatingPower
 	MinOperatingPower
@@ -566,7 +542,7 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 					printk("%s: Missing op_power\n", __func__);
 
 				tusb422_pd->port_config->snk_caps[pdo].SupplyType = supply_type;
-				tusb422_pd->port_config->snk_caps[pdo].PeakI = peak_current;      
+				tusb422_pd->port_config->snk_caps[pdo].PeakI = peak_current;
 				tusb422_pd->port_config->snk_caps[pdo].MinV = PDO_VOLT(min_volt);
 				tusb422_pd->port_config->snk_caps[pdo].MaxV = PDO_VOLT(max_volt);
 				tusb422_pd->port_config->snk_caps[pdo].MaxOperatingCurrent = PDO_CURR(max_current);
@@ -604,29 +580,8 @@ static int tusb422_of_init(struct tusb422_pwr_delivery *tusb422_pd)
 static enum hrtimer_restart tusb422_timer_tasklet(struct hrtimer *hrtimer)
 {
 	struct tusb422_pwr_delivery *tusb422_pwr = container_of(hrtimer, struct tusb422_pwr_delivery, timer);
-//	int i;
 
-//	printk("%s: call back 0x%pF\n", __func__, tusb422_pwr->call_back);
-//	printk("%s: alert_status %i\n", __func__, tusb422_pwr->alert_status);
-//	/* Wait for the alert interrupt state machine to complete */
-//	if (tusb422_pwr->alert_status) {
-//		for(i = 0; i <= 20; i++) {
-//			msleep(100);
-//			printk("%s: alert_status %i\n", __func__, tusb422_pwr->alert_status);
-//			if (tusb422_pwr->alert_status == 0)
-//				break;
-//		}
-//	}
-
-    schedule_work(&tusb422_pwr->work);
-
-//    if (tusb422_pwr->call_back)
-//    {
-//        disable_irq(tusb422_pwr->alert_irq);
-//        tusb422_pwr->call_back(0);
-//        enable_irq(tusb422_pwr->alert_irq);
-//        schedule_work(&tusb422_pwr->work);
-//    }
+	schedule_work(&tusb422_pwr->work);
 
 	return HRTIMER_NORESTART;
 }
@@ -637,33 +592,26 @@ static void tusb422_work(struct work_struct *work)
 		container_of(work, struct tusb422_pwr_delivery, work);
 	int i;
 
-//	printk("%s: alert_status %i\n", __func__, tusb422_pwr->alert_status);
 	if (tusb422_pwr->alert_status) {
 		for(i = 0; i <= 2000; i++) {
-            udelay(500);
-//			printk("%s: alert_status %i\n", __func__, tusb422_pwr->alert_status);
+			udelay(500);
 			if (tusb422_pwr->alert_status == 0)
 				break;
 		}
 	}
 
-    disable_irq(tusb422_pwr->alert_irq);
+	disable_irq(tusb422_pwr->alert_irq);
 
-    if (tusb422_pwr->call_back)
-    {
-//        printk("%s: %pF\n", __func__, tusb422_pwr->call_back);
-        tusb422_pwr->call_back(0);
-    }
-    else
-    {
-        printk("%s: call back NULL\n", __func__);
-    }
+	if (tusb422_pwr->call_back)
+		tusb422_pwr->call_back(0);
+	else
+		printk("%s: call back NULL\n", __func__);
 
-    tcpm_connection_task();
-    usb_pd_task();
-    enable_irq(tusb422_pwr->alert_irq);
+	tcpm_connection_task();
+	usb_pd_task();
+	enable_irq(tusb422_pwr->alert_irq);
 
-    return;
+	return;
 };
 
 static const struct regmap_config tusb422_regmap_config = {

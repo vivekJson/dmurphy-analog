@@ -1,7 +1,7 @@
 /*
  * Texas Instruments TUSB422 Power Delivery
  *
- * Author: 
+ * Author:
  * Copyright: (C) 2016 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,7 @@ extern void usb_pd_pe_voltage_alarm_handler(unsigned int port, bool hi_voltage);
 
 static const char *ctrlmsg2string[0x14]=
 {
-    "",                       /* 0x00 */                          
+    "",                       /* 0x00 */
     "GOOD_CRC",               /* 0x01 */
     "GOTO_MIN",               /* 0x02 */
     "ACCEPT",                 /* 0x03 */
@@ -104,7 +104,7 @@ void usb_pd_prl_transmit_alert_handler(unsigned int port, tx_status_t tx_status)
     }
     else if (tx_status == TX_STATUS_FAILED)
     {
-        // No valid GoodCRC received.  
+        // No valid GoodCRC received.
         usb_pd_pe_notify(port, PRL_ALERT_MSG_TX_FAILED);
     }
 
@@ -163,7 +163,7 @@ void usb_pd_prl_receive_alert_handler(unsigned int port)
         msg_id = USB_PD_HDR_GET_MSG_ID(hdr);
         INFO("MsgID: %u\n", msg_id);
 
-        // Verify this is not a retry msg. 
+        // Verify this is not a retry msg.
         if (msg_id != dev->stored_msg_id[sop])
         {
             // Store message ID.
@@ -178,7 +178,7 @@ void usb_pd_prl_receive_alert_handler(unsigned int port)
             CRIT("MsgID: %u matches stored!\n", msg_id);
         }
     }
-   
+
     return;
 }
 
@@ -208,7 +208,7 @@ void usb_pd_prl_tx_ctrl_msg(unsigned int port, uint8_t *buf, msg_hdr_ctrl_msg_ty
 {
     DEBUG("Tx msg_type: %u (%s), sop: %u\n", msg_type, ctrlmsg2string[msg_type], sop_type);
 
-    buf[0] = 2; /* Tx byte cnt */ 
+    buf[0] = 2; /* Tx byte cnt */
     buf[1] = USB_PD_HDR_GEN_BYTE0(pd[port].data_role, msg_type);
     buf[2] = USB_PD_HDR_GEN_BYTE1(0, 0, pd[port].msg_id[sop_type], pd[port].power_role);
 
@@ -245,10 +245,10 @@ void usb_pd_prl_tx_data_msg(unsigned int port, uint8_t *buf, msg_hdr_data_msg_ty
 
 
 #if 0
-void usb_pd_prl_tx(unsigned int port, 
-               tcpc_transmit_t type, 
-               uint16_t header, 
-               const uint8_t *data) 
+void usb_pd_prl_tx(unsigned int port,
+               tcpc_transmit_t type,
+               uint16_t header,
+               const uint8_t *data)
 {
     uint8_t i;
     uint8_t buf[32];
@@ -257,9 +257,9 @@ void usb_pd_prl_tx(unsigned int port,
 
     data_len = USB_PD_HDR_GET_DATA_LEN(header);
 
-    buf[0] = data_len + 2; /* Tx byte cnt (add 2-bytes for header) */ 
-    buf[1] = header;       /* Header byte 0 */ 
-    buf[2] = header >> 8;  /* Header byte 1 */ 
+    buf[0] = data_len + 2; /* Tx byte cnt (add 2-bytes for header) */
+    buf[1] = header;       /* Header byte 0 */
+    buf[2] = header >> 8;  /* Header byte 1 */
 
     while (data_len--)
     {
@@ -277,12 +277,12 @@ void usb_pd_prl_tx(unsigned int port,
 
 
 static const tcpm_callbacks_t tcpm_callbacks = {
-    .conn_state_change_cbk = usb_pd_pe_connection_state_change_handler,  
-    .current_change_cbk = 0,                                             
-    .pd_hard_reset_cbk = usb_pd_prl_hard_reset_alert_handler,            
-    .pd_receive_cbk = usb_pd_prl_receive_alert_handler,                  
-    .pd_transmit_cbk = usb_pd_prl_transmit_alert_handler,                
-    .volt_alarm_cbk = usb_pd_pe_voltage_alarm_handler,                   
+    .conn_state_change_cbk = usb_pd_pe_connection_state_change_handler,
+    .current_change_cbk = 0,
+    .pd_hard_reset_cbk = usb_pd_prl_hard_reset_alert_handler,
+    .pd_receive_cbk = usb_pd_prl_receive_alert_handler,
+    .pd_transmit_cbk = usb_pd_prl_transmit_alert_handler,
+    .volt_alarm_cbk = usb_pd_pe_voltage_alarm_handler,
 };
 
 void usb_pd_prl_init(void)
@@ -291,13 +291,3 @@ void usb_pd_prl_init(void)
 
     return;
 }
-
-
-
-
-
-
-
-
-
-

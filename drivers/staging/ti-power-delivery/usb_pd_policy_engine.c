@@ -1032,8 +1032,8 @@ static void pd_transition_power_supply(usb_pd_port_t *dev)
         v_threshold = v_threshold << 1;  /* convert to 25mV units */
     }
 
-    // Use Hi voltage alarm to determine when power supply is ready. 
-    // Alteratively, policy manager could notify policy engine or may be possible to 
+    // Use Hi voltage alarm to determine when power supply is ready.
+    // Alteratively, policy manager could notify policy engine or may be possible to
     // fixed delay if system timing is known.
     tcpm_set_voltage_alarm_hi(dev->port, v_threshold);
 

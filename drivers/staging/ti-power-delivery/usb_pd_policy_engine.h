@@ -1,7 +1,7 @@
 /*
  * Texas Instruments TUSB422 Power Delivery
  *
- * Author: 
+ * Author:
  * Copyright: (C) 2016 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 
 #define MAX_SOP_NUM 5     /* SOP, SOP', SOP", SOP_DBG', SOP_DBG" */
 
-#define PD_STATE_HISTORY_LEN  8  
+#define PD_STATE_HISTORY_LEN  8
 #define PD_STATE_INDEX_MASK   0x7  /* bitmask based on history length */
 
 typedef enum
@@ -102,8 +102,8 @@ typedef enum
 //typedef enum
 //{
 //    // BQ - maybe these can be bool in struct below.
-//    PD_FLAGS_DUAL_ROLE_POWER = (0 << 0), 
-//    PD_FLAGS_DUAL_ROLE_DATA  = (0 << 1), 
+//    PD_FLAGS_DUAL_ROLE_POWER = (0 << 0),
+//    PD_FLAGS_DUAL_ROLE_DATA  = (0 << 1),
 //} pd_flags_t;
 
 typedef struct
@@ -112,20 +112,20 @@ typedef struct
     unsigned int        state_idx;
     usb_pd_pe_state_t   *current_state;
     bool                state_change;
-                        
+
 //    uint8_t             flags;
     unsigned int        port;
     struct tusb422_timer_t             timer;
     struct tusb422_timer_t             timer2;
 
-    uint8_t             power_role;      
+    uint8_t             power_role;
     uint8_t             data_role;
-                        
+
     tcpc_transmit_t     tx_sop_type;           /* For incrementing correct msg ID when Tx is successful */
     uint8_t             msg_id[MAX_SOP_NUM];   /* For Tx.  Masked off to 3-bits when building msg header */
-                        
+
     uint8_t             stored_msg_id[MAX_SOP_NUM];   /* For Rx */
-    uint8_t             rx_msg_buf[MAX_EXT_MSG_LEN];  
+    uint8_t             rx_msg_buf[MAX_EXT_MSG_LEN];
     uint8_t             rx_msg_data_len;
     uint8_t             rx_msg_type;
 
@@ -171,7 +171,7 @@ typedef enum
 //typedef enum
 //{
 //    PD_FLAG_USB_COMM_CAPABLE = (1 << 0),
-//    
+//
 //} pd_flags_t;
 
 

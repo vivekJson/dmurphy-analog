@@ -52,7 +52,7 @@ int8_t tcpc_write_block(unsigned int port, uint8_t reg, uint8_t *data, uint8_t l
     return tusb422_write_block(reg, (int*)data, len);
 };
 
-// Modifies an 8-bit register.  
+// Modifies an 8-bit register.
 void tcpc_modify8(unsigned int port,
                   uint8_t reg,
                   uint8_t clr_mask,

@@ -1,7 +1,7 @@
 /*
  * Texas Instruments TUSB422 Power Delivery
  *
- * Author: 
+ * Author:
  * Copyright: (C) 2016 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -48,7 +48,7 @@ typedef enum
     TCPC_STATE_ORIENTED_DEBUG_ACC_SRC,
     TCPC_STATE_DEBUG_ACC_SNK,
     TCPC_STATE_AUDIO_ACC,
-    TCPC_STATE_ERROR_RECOVERY,    
+    TCPC_STATE_ERROR_RECOVERY,
     TCPC_STATE_DISABLED  /* no CC terminations */
 } tcpc_state_t;
 
@@ -67,7 +67,7 @@ typedef enum
 } plug_polarity_t;
 
 
-//typedef enum 
+//typedef enum
 //{
 //	CC_STATE_OPEN        = 0,
 //	CC_STATE_SRC_RA      = 1,
@@ -78,7 +78,7 @@ typedef enum
 //} cc_state_t;
 
 
-typedef struct 
+typedef struct
 {
 //    smbus_interface_t  intf;
 //    uint8_t            slave_addr;
@@ -143,8 +143,8 @@ typedef struct
 
 //*****************************************************************************
 //
-//! \brief   Initializes the SMBus interface(s) used to talk to TCPCs.  
-//!          
+//! \brief   Initializes the SMBus interface(s) used to talk to TCPCs.
+//!
 //!
 //! \param   none
 //!
@@ -189,4 +189,3 @@ tcpc_device_t* tcpm_get_device(unsigned int port);
 void tcpm_cc_pin_control(unsigned int port, tc_role_t role);
 
 #endif //__TCPM_H__
-
