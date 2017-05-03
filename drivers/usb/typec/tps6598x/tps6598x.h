@@ -1,0 +1,85 @@
+/*
+ * phy-tps6598x driver
+ *
+ * Author:      Dan Murphy <dmurphy@ti.com>
+ * Copyright (C) 2017 Texas Instruments, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#ifndef _PHY_TPS6598X_H
+#define _PHY_TPS6598X_H
+
+#define TPS6598X_VID		0x00
+#define TPS6598X_DID		0x01
+#define TPS6598X_PROTO_VER	0x02
+#define TPS6598X_MODE		0x03
+#define TPS6598X_TYPE		0x04
+#define TPS6598X_UID		0x05
+#define TPS6598X_CUSTUSE	0x06
+
+#define TPS6598X_CMD_1		0x08
+#define TPS6598X_DATA_1		0x09
+
+#define TPS6598X_VERSION	0x0f
+#define TPS6598X_CMD_2		0x10
+#define TPS6598X_DATA_2		0x11
+
+#define TPS6598X_INT_EVENT_1	0x14
+#define TPS6598X_INT_EVENT_2	0x15
+#define TPS6598X_INT_MASK_1	0x16
+#define TPS6598X_INT_MASK_2	0x17
+#define TPS6598X_INT_CLEAR_1	0x18
+#define TPS6598X_INT_CLEAR_2	0x19
+#define TPS6598X_STATUS		0x1a
+
+#define TPS6598X_SYS_PWR_ST	0x20
+#define TPS6598X_SYS_CFG	0x28
+#define TPS6598X_CTRL_CFG	0x29
+#define TPS6598X_BOOT_FLAGS	0x2d
+#define TPS6598X_BUILD_ID	0x2e
+#define TPS6598X_DEV_INFO	0x2f
+
+#define TPS6598X_RX_SRC_CAP	0x30
+#define TPS6598X_RX_SNK_CAP	0x31
+#define TPS6598X_TX_SRC_CAP	0x32
+#define TPS6598X_TX_SNK_CAP	0x33
+
+#define TPS6598X_PDO_CONTRACT	0x34
+#define TPS6598X_RDO_CONTRACT	0x35
+#define TPS6598X_RDO_SNK_REQ	0x36
+#define TPS6598X_SNK_AUTO_NEG	0x37
+#define TPS6598X_ALT_MD_SEQ	0x38
+#define TPS6598X_PWR_STATUS	0x3f
+#define TPS6598X_PD_STATUS	0x40
+
+#define TPS6598X_TX_ID		0x47
+#define TPS6598X_RX_ID_SOP_1	0x48
+#define TPS6598X_RX_ID_SOP_2	0x49
+#define TPS6598X_USR_VID_CFG	0x4a
+
+#define TPS6598X_RX_ATTENTION	0x4e
+#define TPS6598X_RX_VDM		0x4f
+
+#define TPS6598X_MAX_READ_BYTES 0x40
+
+#define TPS6598X_CURR_MASK	(BIT(3) | BIT(2))
+#define TPS6598X_REG_CUR_MODE_ADVERTISE_DEFAULT	0x00
+#define TPS6598X_REG_CUR_MODE_ADVERTISE_MID	BIT(2)
+#define TPS6598X_REG_CUR_MODE_ADVERTISE_HIGH	BIT(3)
+
+#define TPS6598X_ATTACHED_STATUS	BIT(0)
+
+#define TPS6598X_DATA_ROLE		BIT(6)
+#define TPS6598X_REG_STATUS_AS_UFP		0x0
+#define TPS6598X_REG_STATUS_AS_DFP		0x1
+
+struct tps6598x_reg_data {
+	unsigned int reg_num;
+	unsigned int num_of_bytes;
+	unsigned int writeable;
+};
+
+#endif

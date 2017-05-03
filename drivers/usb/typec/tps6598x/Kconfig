@@ -1,0 +1,9 @@
+# TI USB Type C and PD controller
+
+config TPS6598X_TYPEC
+	tristate "TPS6598X USB Type C and PD controller"
+	depends on TYPEC && GPIOLIB && I2C
+	default n
+	help
+	  Say Y here to enable tps6598x Type C Connector support.
+

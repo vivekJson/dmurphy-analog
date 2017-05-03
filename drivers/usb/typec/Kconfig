@@ -5,3 +5,4 @@ config TYPEC
 	  Say Y here to support Type C feature
 
 source "drivers/usb/typec/tusb320/Kconfig"
+source "drivers/usb/typec/tps6598x/Kconfig"
