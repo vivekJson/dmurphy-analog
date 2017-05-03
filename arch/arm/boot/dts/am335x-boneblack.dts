@@ -101,14 +101,14 @@
 };
 
 / {
-	hdmi {
+/*	hdmi {
 		compatible = "ti,tilcdc,slave";
 		i2c = <&i2c0>;
 		pinctrl-names = "default", "off";
 		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
 		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 		status = "okay";
-	};
+	};*/
 
 	clk_mcasp0_fixed: clk_mcasp0_fixed {
 	      #clock-cells = <0>;
@@ -123,7 +123,7 @@
 	      enable-gpios = <&gpio1 27 0>; /* BeagleBone Black Clk enable on GPIO1_27 */
 	};
 
-	hdmi_audio: hdmi_audio@0 {
+/*	hdmi_audio: hdmi_audio@0 {
 	       compatible = "linux,hdmi-audio";
 	       status = "okay";
 	};
@@ -137,5 +137,5 @@
 			"HDMI Out",	"TX";
 		clocks = <&clk_mcasp0>;
 		clock-names = "mclk";
-	};
+	};*/
 };

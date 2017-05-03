@@ -200,6 +200,13 @@
 			0x1c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad7.mmc1_dat7 */
 		>;
 	};
+
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			0x178 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart1_ctsn.i2c2_sda */
+			0x17c (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart1_rtsn.i2c2_scl */
+		>;
+	};
 };
 
 &uart0 {
@@ -249,6 +256,20 @@
 		reg = <0x24>;
 	};
 
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+
+	status = "okay";
+	clock-frequency = <400000>;
+
+	tps65986: tps65986@38 {
+		compatible = "ti,tps6598x";
+		reg = <0x38>;
+		i2c-irqz-gpios = <&gpio1 28 0>;
+	};
 };
 
 /include/ "tps65217.dtsi"
@@ -323,6 +344,7 @@
 	pinctrl-0 = <&davinci_mdio_default>;
 	pinctrl-1 = <&davinci_mdio_sleep>;
 };
+
 
 &mmc1 {
 	status = "okay";
