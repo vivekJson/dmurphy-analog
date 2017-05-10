@@ -20,7 +20,7 @@ obj-$(CONFIG_MFD_TC35892)	+= tc35892.o
 obj-$(CONFIG_MFD_T7L66XB)	+= t7l66xb.o tmio_core.o
 obj-$(CONFIG_MFD_TC6387XB)	+= tc6387xb.o tmio_core.o
 obj-$(CONFIG_MFD_TC6393XB)	+= tc6393xb.o tmio_core.o
-
+obj-$(CONFIG_AIC3XXX_CORE)      += tlv320aic3xxx-i2c.o tlv320aic3xxx-spi.o tlv320aic3xxx-core.o tlv320aic3xxx-irq.o
 obj-$(CONFIG_MFD_WM8400)	+= wm8400-core.o
 wm831x-objs			:= wm831x-core.o wm831x-irq.o wm831x-otp.o
 obj-$(CONFIG_MFD_WM831X)	+= wm831x.o
