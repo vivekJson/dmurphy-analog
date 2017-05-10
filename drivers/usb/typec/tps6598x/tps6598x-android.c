@@ -14,7 +14,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
-#include <linux/gpio/consumer.h>
+#include <linux/of_gpio.h>
 #include <linux/i2c.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
@@ -56,8 +56,8 @@ struct tps6598x_priv {
 	struct device *dev;
 	struct i2c_client *client;
 	struct dual_role_phy_instance *tps6598x_instance;
-	struct gpio_desc *int_gpio;
-	struct gpio_desc *reset_gpio;
+	int gpio_int;
+	int gpio_reset;
 	struct work_struct tps6598x_work;
 	struct power_supply type_c_psy;
 	struct power_supply *batt_psy;
@@ -563,20 +563,29 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 	tps6598x_data->client = client;
 	i2c_set_clientdata(client, tps6598x_data);
 
-	tps6598x_data->reset_gpio = devm_gpiod_get(&client->dev, "reset");
-	if (IS_ERR(tps6598x_data->reset_gpio)) {
+	tps6598x_data->gpio_reset = of_get_named_gpio(dev->of_node, "reset", 0);
+	if (!gpio_is_valid(tps6598x_data->gpio_reset))
 		dev_warn(&client->dev, "failed to get Reset GPIO\n");
-		tps6598x_data->reset_gpio = NULL;
+	else {
+		ret = devm_gpio_request(&client->dev, tps6598x_data->gpio_reset, "tps6598x_reset");
+		if (ret < 0)
+			dev_warn(&client->dev, "failed to request Reset GPIO, ret = %d\n", ret);
 	}
 
-	tps6598x_data->int_gpio = devm_gpiod_get(&client->dev, "i2c-irqz");
-	if (IS_ERR(tps6598x_data->int_gpio)) {
+	tps6598x_data->gpio_int = of_get_named_gpio(dev->of_node, "i2c-irqz", 0);
+	if (!gpio_is_valid(tps6598x_data->gpio_int)) {
 		dev_err(&client->dev, "failed to get IRQz GPIO\n");
-		ret = PTR_ERR(tps6598x_data->int_gpio);
+		ret = -EINVAL;
 		goto err_interrupt;
 	}
 
-	tps6598x_data->irqz_int = gpiod_to_irq(tps6598x_data->int_gpio);
+	ret = devm_gpio_request(&client->dev, tps6598x_data->gpio_int, "tps6598x_irqz");
+	if (ret < 0) {
+		dev_warn(&client->dev, "failed to request IRQz GPIO, ret = %d\n", ret);
+		goto err_interrupt;
+	}
+
+	tps6598x_data->irqz_int  = gpio_to_irq(tps6598x_data->gpio_int);
 	if (tps6598x_data->irqz_int < 0) {
 		dev_err(&client->dev, "failed to translate ID_OUT GPIO to IRQ\n");
 		goto err_irq;
