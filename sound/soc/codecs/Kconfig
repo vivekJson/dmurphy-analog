@@ -119,6 +119,9 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_TLV320AIC31XX if I2C
 	select SND_SOC_TLV320AIC32X4 if I2C
 	select SND_SOC_TLV320AIC3X if I2C
+	select SND_SOC_AIC3262 if AIC3XXX_CORE
+	select SND_SOC_AIC3266 if AIC3XXX_CORE
+	select SND_SOC_AIC3268 if AIC3XXX_CORE
 	select SND_SOC_TPA6130A2 if I2C
 	select SND_SOC_TLV320DAC33 if I2C
 	select SND_SOC_TS3A227E if I2C
@@ -684,6 +687,15 @@ config SND_SOC_TLV320AIC31XX
 
 config SND_SOC_TLV320AIC32X4
 	tristate
+
+config SND_SOC_AIC3262
+	tristate
+
+config SND_SOC_AIC3266
+	tristate "Texas Instruments TLV320AIC3266 CODEC"
+
+config SND_SOC_AIC3268
+	tristate "Texas Instruments TLV320AIC3268 CODEC"
 
 config SND_SOC_TLV320AIC3X
 	tristate "Texas Instruments TLV320AIC3x CODECs"
