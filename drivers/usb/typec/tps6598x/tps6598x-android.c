@@ -50,6 +50,8 @@ static const struct tps6598x_reg_data tps6598x_reg[] = {
 	{ TPS6598X_INT_CLEAR_2, 8, 1 },
 	{ TPS6598X_STATUS, 4, 0 },
 	{ TPS6598X_PWR_STATUS, 2, 0 },
+	{ TPS6598X_SYS_CFG, 17, 1 },
+	{ TPS6598X_CTRL_CFG, 5, 1 },
 };
 
 struct tps6598x_priv {
@@ -70,8 +72,8 @@ static struct tps6598x_priv *tps6598x_data;
 
 enum dual_role_property tps6598x_properties[] = {
 	DUAL_ROLE_PROP_MODE,
-	DUAL_ROLE_PROP_PR,
 	DUAL_ROLE_PROP_DR,
+	DUAL_ROLE_PROP_PR,
 };
 
 static enum power_supply_property tps6598x_typec_properties[] = {
@@ -90,7 +92,7 @@ static int tps6598x_i2c_write(struct tps6598x_priv *tps6598x_data, int reg,
 	for (i = 0; i < reg_count; i++) {
 		if (tps6598x_reg[i].reg_num == reg) {
 			writeable = tps6598x_reg[i].writeable;
-			bytes_to_write = tps6598x_reg[i].num_of_bytes + 1;
+			bytes_to_write = tps6598x_reg[i].num_of_bytes;
 			break;
 		}
 
@@ -186,6 +188,42 @@ static int tps6598x_typec_get_property(struct power_supply *psy,
 	return 0;
 }
 
+static int tps6598x_set_port_mode(enum typec_port_mode port_mode)
+{
+	int ret = 0;
+	u8 obuf[18];
+	u8 mask_val = 0;
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_SYS_CFG, &obuf);
+	if (ret < 0) {
+		pr_err("%s: read SYS_CFG error\n", __func__);
+		return -EIO;
+	}
+
+	switch (port_mode) {
+	case TYPEC_UFP_MODE:
+		pr_info("%s: UFP Mode\n", __func__);
+		mask_val = TPS6598X_UFP_ONLY_MODE;
+		break;
+	case TYPEC_DFP_MODE:
+		pr_info("%s: DFP Mode\n", __func__);
+		mask_val = TPS6598X_DFP_ONLY_MODE;
+		break;
+	case TYPEC_DRP_MODE:
+		mask_val = TPS6598X_DUAL_ROLE_MODE;
+		pr_info("%s: DRP Mode\n", __func__);
+		break;
+	default:
+		pr_info("%s: Default\n", __func__);
+		break;
+	}
+
+	obuf[1] &= TPS6598X_PORTINFO_MASK;
+	obuf[1] |= mask_val;
+
+	return tps6598x_i2c_write(tps6598x_data, TPS6598X_SYS_CFG, &(obuf[0]));
+}
+
 /* Type C framework functions */
 static enum typec_port_mode tps6598x_port_mode_get(void)
 {
@@ -232,6 +270,9 @@ static enum typec_attached_state tps6598x_attached_state_detect(void)
 		return attached_state;
 	}
 
+	printk("%s: 0x%X 0x%X 0x%X 0x%X\n", __func__,
+		obuf[1], obuf[2], obuf[3], obuf[4]);
+
 	if ((obuf[1] & TPS6598X_ATTACHED_STATUS) == 0x00)
 		return TYPEC_NOT_ATTACHED;
 
@@ -256,7 +297,7 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 {
 	enum typec_current_mode current_mode = TYPEC_CURRENT_MODE_DEFAULT;
 	int ret;
-	u8 obuf[5];
+	u8 obuf[3];
 	u8 mask_val;
 
 	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_PWR_STATUS, &obuf);
@@ -265,17 +306,17 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 		return current_mode;
 	}
 
-	mask_val = obuf[2] & TPS6598X_CURR_MASK;
+	mask_val = obuf[1] & TPS6598X_DETECT_CURR_MASK;
 	switch (mask_val) {
-	case TPS6598X_REG_CUR_MODE_ADVERTISE_DEFAULT:
+	case TPS6598X_REG_CUR_MODE_DETECT_DEFAULT:
 		current_mode = TYPEC_CURRENT_MODE_DEFAULT;
 		tps6598x_data->current_ma = TYPEC_STD_MA;
 		break;
-	case TPS6598X_REG_CUR_MODE_ADVERTISE_MID:
+	case TPS6598X_REG_CUR_MODE_DETECT_MID:
 		current_mode = TYPEC_CURRENT_MODE_MID;
 		tps6598x_data->current_ma = TYPEC_MED_MA;
 		break;
-	case TPS6598X_REG_CUR_MODE_ADVERTISE_HIGH:
+	case TPS6598X_REG_CUR_MODE_DETECT_HIGH:
 		current_mode = TYPEC_CURRENT_MODE_HIGH;
 		tps6598x_data->current_ma = TYPEC_HIGH_MA;
 		break;
@@ -283,6 +324,7 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 		current_mode = TYPEC_CURRENT_MODE_UNSPPORTED;
 		tps6598x_data->current_ma = 0;
 	}
+
 	pr_debug("%s: current mode is %d\n", __func__, current_mode);
 
 	return current_mode;
@@ -292,16 +334,16 @@ static enum typec_current_mode tps6598x_current_advertise_get(void)
 {
 	enum typec_current_mode current_mode = TYPEC_CURRENT_MODE_DEFAULT;
 	int ret;
-	u8 obuf[5];
+	u8 obuf[18];
 	u8 mask_val;
 
-	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_PWR_STATUS, &obuf);
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_SYS_CFG, &obuf);
 	if (ret < 0) {
-		pr_err("%s: read POWER_STATUS error\n", __func__);
+		pr_err("%s: read SYS_CFG error\n", __func__);
 		return current_mode;
 	}
 
-	mask_val = obuf[2] & TPS6598X_CURR_MASK;
+	mask_val = obuf[6] & TPS6598X_REG_CUR_MODE_ADVERTISE_MASK;
 	switch (mask_val) {
 	case TPS6598X_REG_CUR_MODE_ADVERTISE_DEFAULT:
 		current_mode = TYPEC_CURRENT_MODE_DEFAULT;
@@ -323,29 +365,64 @@ static enum typec_current_mode tps6598x_current_advertise_get(void)
 
 static int tps6598x_current_advertise_set(enum typec_current_mode current_mode)
 {
+	int ret;
+	u8 obuf[18];
+	u8 mask_val;
+	u8 bcenable;
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_SYS_CFG, &obuf);
+	if (ret < 0) {
+		pr_err("%s: read SYS_CFG error\n", __func__);
+		return current_mode;
+	}
+
+	switch (current_mode) {
+	case TYPEC_CURRENT_MODE_MID:
+		mask_val = TPS6598X_REG_CUR_MODE_ADVERTISE_MID;
+		break;
+	case TYPEC_CURRENT_MODE_HIGH:
+		mask_val = TPS6598X_REG_CUR_MODE_ADVERTISE_HIGH;
+		break;
+	default:
+		mask_val = TPS6598X_REG_CUR_MODE_ADVERTISE_DEFAULT;
+	}
+
+	if (mask_val == (obuf[6] & TPS6598X_REG_CUR_MODE_ADVERTISE_MASK)) {
+		pr_info("%s: current advertise is %d already\n", __func__,
+			current_mode);
+		return 0;
+	}
+
+	obuf[6] &= ~TPS6598X_REG_CUR_MODE_ADVERTISE_MASK;
+	obuf[6] |= mask_val;
+
+	bcenable = obuf[6] | BIT(0);
+	obuf[6] = bcenable;
+
+	tps6598x_i2c_write(tps6598x_data, TPS6598X_SYS_CFG, &(obuf[0]));
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_SYS_CFG, &obuf);
+	if (ret < 0) {
+		pr_err("%s: read POWER_STATUS error\n", __func__);
+		return current_mode;
+	}
+
 	pr_info("%s: current advertise set to %d\n", __func__, current_mode);
 	return 0;
 }
 
 static int tps6598x_port_mode_set(enum typec_port_mode port_mode)
 {
-	switch (port_mode) {
-	case TYPEC_UFP_MODE:
-		pr_info("%s: UFP Mode\n", __func__);
-		break;
-	case TYPEC_DFP_MODE:
-		pr_info("%s: DFP Mode\n", __func__);
-		break;
-	case TYPEC_DRP_MODE:
-		pr_info("%s: DRP Mode\n", __func__);
-		break;
-	default:
-		pr_info("%s: Default\n", __func__);
-		break;
-	}
+	int ret = 0;
 
-	pr_info("%s: port mode set to %d\n", __func__, port_mode);
-	return 0;
+	ret = tps6598x_set_port_mode(port_mode);
+	if (ret)
+		pr_info("%s: port mode failed to set to %d\n",
+			__func__, port_mode);
+	else
+		pr_info("%s: port mode set to %d\n", __func__, port_mode);
+
+	return ret;
 }
 
 static ssize_t tps6598x_dump_regs(char *buf)
@@ -397,21 +474,73 @@ static int tps6598x_get_property(struct dual_role_phy_instance *dual_role,
 	return 0;
 }
 
+static int tps6598x_set_power_role(const unsigned int *val)
+{
+	int ret = 0;
+	u8 obuf[6];
+	u8 mask_val;
+int i = 1;
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_CTRL_CFG, &obuf);
+	if (ret < 0) {
+		pr_err("%s: read SYS_CFG error\n", __func__);
+		return -EIO;
+	}
+
+for (i = 1; i <= obuf[0]; i++)
+		printk("%s: Byte %i before 0x%X\n", __func__, i, obuf[i]);
+
+	if (*val == DUAL_ROLE_PROP_PR_SRC)
+		mask_val = TPS6598X_SRC_MODE;
+	else if (*val == DUAL_ROLE_PROP_PR_SNK)
+		mask_val = TPS6598X_SNK_MODE;
+	else
+		return -EINVAL;
+
+printk("%s:  byte is 0x%X maskval is 0x%X\n", __func__, obuf[1], mask_val);
+	obuf[1] &= TPS6598X_PORTINFO_MASK;
+	obuf[1] |= mask_val;
+printk("%s: portinfo byte is now 0x%X\n", __func__, obuf[1]);
+	tps6598x_i2c_write(tps6598x_data, TPS6598X_CTRL_CFG, &(obuf[0]));
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_CTRL_CFG, &obuf);
+	if (ret < 0) {
+		pr_err("%s: read CTRL_CFG error\n", __func__);
+		return -EIO;
+	}
+for (i = 0; i <= obuf[0]; i++)
+		printk("%s: Byte %i is 0x%X\n", __func__, i, obuf[i]);
+
+	return ret;
+}
+
 static int tps6598x_set_property(struct dual_role_phy_instance *dual_role,
 				enum dual_role_property prop,
 				const unsigned int *val)
 {
+	enum typec_port_mode mode_switch;
+	int ret = 0;
+
 	switch (prop) {
-	case DUAL_ROLE_PROP_SUPPORTED_MODES:
-		pr_info("%s: prop: %d, not supported case so far\n",
-			__func__, prop);
-		break;
 	case DUAL_ROLE_PROP_MODE:
+		if (*val == DUAL_ROLE_PROP_MODE_DFP)
+			mode_switch = TYPEC_DFP_MODE;
+		else if (*val == DUAL_ROLE_PROP_MODE_UFP)
+			mode_switch = TYPEC_UFP_MODE;
+		else if (*val == DUAL_ROLE_PROP_MODE_DRP)
+			mode_switch = TYPEC_DRP_MODE;
+		else
+			return -EINVAL;
+
+		ret = tps6598x_set_port_mode(mode_switch);
+		break;
 	case DUAL_ROLE_PROP_PR:
-	case DUAL_ROLE_PROP_DR:
+		ret = tps6598x_set_power_role(val);
 		break;
 	case DUAL_ROLE_PROP_VCONN_SUPPLY:
-		pr_info("%s prop: %d, not supported case so far\n",
+	case DUAL_ROLE_PROP_SUPPORTED_MODES:
+	case DUAL_ROLE_PROP_DR:
+		pr_info("%s: prop: %d, not supported case so far\n",
 			__func__, prop);
 		break;
 	default:
@@ -420,16 +549,21 @@ static int tps6598x_set_property(struct dual_role_phy_instance *dual_role,
 		break;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int tps6598x_property_is_writeable(struct dual_role_phy_instance *dual_role,
 			enum dual_role_property prop)
 {
-	if (prop == DUAL_ROLE_PROP_MODE)
+	switch(prop) {
+	case DUAL_ROLE_PROP_PR:
+	case DUAL_ROLE_PROP_MODE:
 		return 1;
-	else
+	default:
 		return 0;
+	}
+
+	return 0;
 }
 
 /* Power supply functions */
@@ -536,6 +670,7 @@ static const struct dual_role_phy_desc tps6598x_desc = {
 	.get_property = tps6598x_get_property,
 	.set_property = tps6598x_set_property,
 	.property_is_writeable = tps6598x_property_is_writeable,
+	.supported_modes = DUAL_ROLE_SUPPORTED_MODES_DFP_AND_UFP
 };
 
 struct typec_device_ops tps6598x_ops = {
