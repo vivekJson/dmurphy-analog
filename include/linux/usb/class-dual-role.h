@@ -18,6 +18,7 @@ enum dual_role_supported_modes {
 enum dual_role_prop_mode {
 	DUAL_ROLE_PROP_MODE_UFP = 0,
 	DUAL_ROLE_PROP_MODE_DFP,
+	DUAL_ROLE_PROP_MODE_DRP,
 	DUAL_ROLE_PROP_MODE_NONE,
 /*The following should be the last element*/
 	DUAL_ROLE_PROP_MODE_TOTAL,

@@ -249,7 +249,7 @@ static char *supported_modes_text[] = {
 
 /* current mode */
 static char *mode_text[] = {
-	"ufp", "dfp", "none"
+	"ufp", "dfp", "drp", "none"
 };
 
 /* Power role */

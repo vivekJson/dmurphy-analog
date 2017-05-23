@@ -30,7 +30,7 @@ Description:
 		ports and "none" when cable is not connected.
 
 		On devices where the USB mode is software-controllable,
-		userspace can change the mode by writing "dfp" or "ufp".
+		userspace can change the mode by writing "drp", "dfp" or "ufp".
 		On devices where the USB mode is fixed in hardware,
 		this attribute is read-only.
 
