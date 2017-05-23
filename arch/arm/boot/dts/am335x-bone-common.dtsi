@@ -268,7 +268,7 @@
 	tps65986: tps65986@38 {
 		compatible = "ti,tps6598x";
 		reg = <0x38>;
-		i2c-irqz-gpios = <&gpio1 28 0>;
+		i2c-irqz = <&gpio1 28 0>;
 	};
 };
 
