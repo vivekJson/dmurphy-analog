@@ -270,6 +270,11 @@
 		reg = <0x38>;
 		i2c-irqz = <&gpio1 28 0>;
 	};
+
+	bq28z610@55 {
+		compatible = "ti,bq28z610";
+		reg = <0x55>;
+	};
 };
 
 /include/ "tps65217.dtsi"

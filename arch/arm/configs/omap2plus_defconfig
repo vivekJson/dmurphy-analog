@@ -320,6 +320,8 @@ CONFIG_TI_ST=y
 CONFIG_ST_HCI=y
 CONFIG_PREEMPT=y
 
+CONFIG_BATTERY_BQ28610=y
+
 ##############################################
 #
 # Kernel options needed for systemd enabled TI SDKs
