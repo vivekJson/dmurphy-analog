@@ -389,6 +389,12 @@ config BATTERY_GOLDFISH
 	  Say Y to enable support for the battery and AC power in the
 	  Goldfish emulator.
 
+config BATTERY_BQ28610
+	tristate "TI BQ28610 battery fuel gauge driver"
+	depends on I2C
+	help
+	  Say Y to enable support for the TI BQ28610 Fuel Gauge Driver"
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY
