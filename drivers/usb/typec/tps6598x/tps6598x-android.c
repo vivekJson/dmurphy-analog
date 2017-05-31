@@ -52,6 +52,7 @@ static const struct tps6598x_reg_data tps6598x_reg[] = {
 	{ TPS6598X_PWR_STATUS, 2, 0 },
 	{ TPS6598X_SYS_CFG, 17, 1 },
 	{ TPS6598X_CTRL_CFG, 5, 1 },
+	{ TPS6598X_TX_SNK_CAP, 57, 1 },
 };
 
 struct tps6598x_priv {
@@ -63,6 +64,8 @@ struct tps6598x_priv {
 	struct work_struct tps6598x_work;
 	struct power_supply type_c_psy;
 	struct power_supply *batt_psy;
+	enum typec_attached_state attached_state;
+	enum typec_port_mode port_mode;
 	int irqz_int;
 	int typec_state;
 	int current_ma;
@@ -218,6 +221,8 @@ static int tps6598x_set_port_mode(enum typec_port_mode port_mode)
 		break;
 	}
 
+	tps6598x_data->port_mode = port_mode;
+
 	obuf[1] &= TPS6598X_PORTINFO_MASK;
 	obuf[1] |= mask_val;
 
@@ -259,15 +264,16 @@ static enum typec_port_mode tps6598x_port_mode_get(void)
 
 static enum typec_attached_state tps6598x_attached_state_detect(void)
 {
-	enum typec_attached_state attached_state = TYPEC_NOT_ATTACHED;
 	u8 obuf[5];
 	int ret;
 	u8 mask_val;
 
+	tps6598x_data->attached_state = TYPEC_NOT_ATTACHED;
+
 	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_STATUS, &obuf);
 	if (ret < 0) {
 		pr_err("%s: read REG_ATTACH_STATUS error\n", __func__);
-		return attached_state;
+		return tps6598x_data->attached_state;
 	}
 
 	printk("%s: 0x%X 0x%X 0x%X 0x%X\n", __func__,
@@ -279,18 +285,19 @@ static enum typec_attached_state tps6598x_attached_state_detect(void)
 	mask_val = obuf[1] & TPS6598X_DATA_ROLE;
 	switch (mask_val) {
 	case TPS6598X_REG_STATUS_AS_DFP:
-		attached_state = TYPEC_ATTACHED_AS_DFP;
+		tps6598x_data->attached_state = TYPEC_ATTACHED_AS_DFP;
 		break;
 	case TPS6598X_REG_STATUS_AS_UFP:
-		attached_state = TYPEC_ATTACHED_AS_UFP;
+		tps6598x_data->attached_state = TYPEC_ATTACHED_AS_UFP;
 		break;
 	default:
-		attached_state = TYPEC_NOT_ATTACHED;
+		tps6598x_data->attached_state = TYPEC_NOT_ATTACHED;
 	}
 
-	pr_debug("%s: attached state is %d\n", __func__, attached_state);
+	pr_debug("%s: attached state is %d\n", __func__,
+			tps6598x_data->attached_state);
 
-	return attached_state;
+	return tps6598x_data->attached_state;
 }
 
 static enum typec_current_mode tps6598x_current_mode_detect(void)
@@ -478,29 +485,54 @@ static int tps6598x_set_power_role(const unsigned int *val)
 {
 	int ret = 0;
 	u8 obuf[6];
+	u8 sink_cap[58];
+	u8 sys_cfg[18];
 	u8 mask_val;
-int i = 1;
 
 	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_CTRL_CFG, &obuf);
 	if (ret < 0) {
-		pr_err("%s: read SYS_CFG error\n", __func__);
+		pr_err("%s: read CTRL_CFG error\n", __func__);
 		return -EIO;
 	}
 
-for (i = 1; i <= obuf[0]; i++)
-		printk("%s: Byte %i before 0x%X\n", __func__, i, obuf[i]);
-
 	if (*val == DUAL_ROLE_PROP_PR_SRC)
-		mask_val = TPS6598X_SRC_MODE;
+		mask_val = (TPS6598X_INIT_SRC_MODE | TPS6598X_PROCESS_SRC_MODE);
 	else if (*val == DUAL_ROLE_PROP_PR_SNK)
-		mask_val = TPS6598X_SNK_MODE;
+		mask_val = (TPS6598X_INIT_SNK_MODE | TPS6598X_PROCESS_SNK_MODE);
 	else
 		return -EINVAL;
 
-printk("%s:  byte is 0x%X maskval is 0x%X\n", __func__, obuf[1], mask_val);
-	obuf[1] &= TPS6598X_PORTINFO_MASK;
+	obuf[1] &= TPS6598X_PR_SWAP_MASK;
 	obuf[1] |= mask_val;
-printk("%s: portinfo byte is now 0x%X\n", __func__, obuf[1]);
+
+	if (tps6598x_data->port_mode == TYPEC_DFP_MODE) {
+		ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_SYS_CFG, &sys_cfg);
+		if (ret < 0) {
+			pr_err("%s: read SYS_CFG error\n", __func__);
+			return -EIO;
+		}
+		sys_cfg[1] &= TPS6598X_PORTINFO_MASK;
+		sys_cfg[1] |= TPS6598X_UFP_DR_PR_SWAP;
+		sys_cfg[4] &= TPS6598X_PP_HV_MASK;
+		sys_cfg[4] |= TPS6598X_PP_HV_INPUT;
+
+		ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_TX_SNK_CAP, &sink_cap);
+		if (ret < 0) {
+			pr_err("%s: read SYS_CFG error\n", __func__);
+			return -EIO;
+		}
+		/* The TRM indicates what these numbers are but not how they
+		 * are derived so they are magical numbers
+		 */
+		sink_cap[1] = 0x01;
+		sink_cap[2] = 0x2c;
+		sink_cap[3] = 0x91;
+		sink_cap[4] = 0x1;
+
+		tps6598x_i2c_write(tps6598x_data, TPS6598X_SYS_CFG, &(sys_cfg[0]));
+		tps6598x_i2c_write(tps6598x_data, TPS6598X_TX_SNK_CAP, &(sink_cap[0]));
+	}
+
 	tps6598x_i2c_write(tps6598x_data, TPS6598X_CTRL_CFG, &(obuf[0]));
 
 	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_CTRL_CFG, &obuf);
@@ -508,8 +540,6 @@ printk("%s: portinfo byte is now 0x%X\n", __func__, obuf[1]);
 		pr_err("%s: read CTRL_CFG error\n", __func__);
 		return -EIO;
 	}
-for (i = 0; i <= obuf[0]; i++)
-		printk("%s: Byte %i is 0x%X\n", __func__, i, obuf[i]);
 
 	return ret;
 }
@@ -737,6 +767,8 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 		pr_err("Unable to register type_c_psy ret=%d\n", ret);
 		goto err_irq;
 	}
+
+	tps6598x_data->port_mode = TYPEC_MODE_ACCORDING_TO_PROT;
 
 	INIT_WORK(&tps6598x_data->tps6598x_work, tps6598x_int_work);
 	ret = request_irq(tps6598x_data->irqz_int, tps6598x_irq,
