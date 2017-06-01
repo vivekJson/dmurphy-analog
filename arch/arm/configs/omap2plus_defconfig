@@ -320,7 +320,9 @@ CONFIG_TI_ST=y
 CONFIG_ST_HCI=y
 CONFIG_PREEMPT=y
 
+CONFIG_DEBUG_FS=y
 CONFIG_BATTERY_BQ28610=y
+CONFIG_CHARGER_BQ2570X=y
 
 ##############################################
 #

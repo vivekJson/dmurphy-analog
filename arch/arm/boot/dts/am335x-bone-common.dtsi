@@ -271,10 +271,22 @@
 		i2c-irqz = <&gpio1 28 0>;
 	};
 
-	bq28z610@55 {
+	bq28z610: bq28z610@55 {
 		compatible = "ti,bq28z610";
 		reg = <0x55>;
 	};
+
+	bq2570x: bq2570x@6b {
+		compatible = "ti,bq25703";
+		reg = <0x6b>;
+
+		ti,bq2570x,input-volt-limit = <4600>;
+		ti,bq2570x,input-curr-limit = <2000>;
+		ti,bq2570x,charge-volt = <8400>;
+		ti,bq2570x,charge-current = <2000>;
+		ti,bq2570x,boost-voltage = <5000>;
+		ti,bq2570x,boost-current = <1000>;
+        };
 };
 
 /include/ "tps65217.dtsi"
