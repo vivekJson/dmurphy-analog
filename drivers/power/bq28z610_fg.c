@@ -409,12 +409,13 @@ static int bq28z610_read_prop_status(struct bqgauge_device_info *bq)
 
 	ret = bq28z610_read_current(bq, &curr);
 	if (ret < 0)
-		return -EINVAL;
+		return POWER_SUPPLY_STATUS_UNKNOWN;
+
 	mdelay(2);
 
 	flags = bq28z610_read_status(bq);
 	if (ret < 0)
-		return -EINVAL;
+		return POWER_SUPPLY_STATUS_UNKNOWN;
 
 	if (flags & BQ28Z610_BATTERYSTATUS_FC)
 		status = POWER_SUPPLY_STATUS_FULL;
@@ -955,19 +956,18 @@ static int bqgauge_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_STATUS:
 		if (bq->gauge->read_status)
 			val->intval = bq->gauge->read_status(bq);
-		else
-			val->intval = -EINVAL;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = bq->batt_volt * 1000;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		val->intval = bq->batt_volt > 0 ? 1 : 0;
+		val->intval = bq->batt_volt <= 0 ? 0 : 1;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = -bq->batt_curr * 1000;
 		break;
 
+	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = bq->batt_soc;
 		break;
@@ -1275,7 +1275,7 @@ static void bqgauge_update_data(struct bqgauge_device_info *bq)
 		if (ret >= 0)
 			bq->batt_fcc = ret;
 	} else {
-		bq->batt_fcc = -EINVAL;
+		bq->batt_fcc = 0;
 	}
 
 	if (bq->gauge && bq->gauge->read_cyclecount) {
@@ -1283,7 +1283,7 @@ static void bqgauge_update_data(struct bqgauge_device_info *bq)
 		if (ret >= 0)
 			bq->batt_cc = ret;
 	} else {
-		bq->batt_cc = -EINVAL;
+		bq->batt_cc = 0;
 	}
 
 	if (bq->gauge && bq->gauge->read_designcap) {
