@@ -1,0 +1,517 @@
+/*
+ * BQ2570x battery charging driver
+ *
+ * Copyright (C) 2017 Texas Instruments
+ *
+ * This package is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+
+ * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+ * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
+#ifndef __BQ25703_H__
+#define	__BQ25703_H__
+
+#define	BQ2570X_REG_00					0x00
+#define	CHARGEOPTION0_0_REG				BQ2570X_REG_00
+#define	EN_LEARN_MASK					0x20
+#define	EN_LEARN_SHIFT					5
+#define	LEARN_ENABLE					1
+#define	LEARN_DISABLE					0
+#define	IADPT_GAIN_MASK					0x10
+#define	IADPT_GAIN_SHIFT					4
+#define	IADPT_GAIN_20X					0
+#define	IADPT_GAIN_40X					1
+#define	IBAT_GAIN_MASK					0x08
+#define	IBAT_GAIN_SHIFT					3
+#define	IBAT_GAIN_8X					0
+#define	IBAT_GAIN_16X					1
+#define	EN_LDO_MASK						0x04
+#define	EN_LDO_SHIFT					2
+#define	LDO_MODE_ENABLE					1
+#define	LDO_MODE_DISABLE				0
+#define	EN_IDPM_MASK					0x02
+#define	EN_IDPM_SHIFT					1
+#define	IDPM_ENABLE						1
+#define	IDPM_DISABLE					0
+#define	CHRG_INHIBIT_MASK				0x01
+#define	CHRG_INHIBIT_SHIFT				0
+#define	CHRG_INHIBIT					1
+#define	CHRG_ENABLE						0
+
+#define	BQ2570X_REG_01					0x01
+#define	CHARGEOPTION0_1_REG				BQ2570X_REG_01
+#define	EN_LWPWR_MASK					0x80
+#define	EN_LWPWR_SHIFT					7
+#define	LWPWR_ENABLE					1
+#define	LWPWR_DISABLE					0
+#define	WDTMR_ADJ_MASK					0x60
+#define	WDTMR_ADJ_SHIFT					5
+#define	WDTMR_ADJ_DISABLE				0
+#define	WDTMR_ADJ_5S					1
+#define	WDTMR_ADJ_88S					2
+#define	WDTMR_ADJ_175S					3
+#define	IDPM_AUTO_DISABLE_MASK			0x10
+#define	IDPM_AUTO_DISABLE_SHIFT			4
+#define	IDPM_AUTO_DISABLE				0
+#define	IDPM_AUTO_ENABLE				1
+#define	OTG_ON_CHRGOK_MASK				0x08
+#define	OTG_ON_CHRGOK_SHIFT				3
+#define	OTG_ON_CHRGOK_ENABLE			1
+#define	OTG_ON_CHRGOK_DISABLE			0
+#define	EN_OOA_MASK						0x04
+#define	EN_OOA_SHIFT					2
+#define	OOA_ENABLE						1
+#define	OOA_DISABLE						0
+#define	PWM_FREQ_MASK					0x02
+#define	PWM_FREQ_SHIFT					1
+#define	PWM_FREQ_1200KHZ				0
+#define	PWM_FREQ_800KHZ					1
+
+
+#define	BQ2570X_REG_02					0x02
+#define	BQ2570X_REG_03					0x03
+#define	CHARGECURRENT_REG				BQ2570X_REG_02
+#define	CHARGECURRENT_BASE				0
+#define	CHARGECURRENT_LSB				64
+#define	CHARGECURRENT_SHIFT				6
+#define	CHARGECURRENT_MASK				0x01FC
+
+#define	BQ2570X_REG_04					0x04
+#define	BQ2570X_REG_05					0x05
+#define	CHARGEVOLT_REG				BQ2570X_REG_04
+#define	CHARGEVOLT_BASE					0
+#define	CHARGEVOLT_LSB					16
+#define	CHARGEVOLT_SHIFT				4
+#define	CHARGEVOLT_MASK					0x7FF0
+
+#define	BQ2570X_REG_06					0x06
+#define	BQ2570X_REG_07					0x07
+/* TODO: check address order */
+#define	OTGVOLT_REG						BQ2570X_REG_06
+#define	OTGVOLT_BASE					4480
+#define	OTGVOLT_LSB						64
+#define	OTGVOLT_SHIFT					6
+#define	OTGVOLT_MASK					0x03FC
+
+
+#define	BQ2570X_REG_08					0x08
+#define	BQ2570X_REG_09					0x09
+#define	OTGCURRENT_REG					BQ2570X_REG_09
+#define	OTGCURRENT_BASE					0
+#define	OTGCURRENT_LSB					50
+#define	OTGCURRENT_SHIFT				0
+#define	OTGCURRENT_MASK					0x7F
+
+
+#define	BQ2570X_REG_0A					0x0A
+#define	BQ2570X_REG_0B					0x0B
+/* TODO: check address order */
+#define	INPUTVOLTLIM_REG				BQ2570X_REG_0A
+#define	INPUTVOLTLIM_BASE				3200
+#define	INPUTVOLTLIM_LSB				64
+#define	INPUTVOLTLIM_SHIFT				6
+#define	INPUTVOLTLIM_MASK				0x3FC0
+
+
+#define	BQ2570X_REG_0C					0x0C
+#define	BQ2570X_REG_0D					0x0D
+#define	MINSYSVOLT_REG					BQ2570X_REG_0C
+#define	MINSYSVOLT_BASE					0
+#define MINSYSVOLT_LSB					256
+#define	MINSYSVOLT_SHIFT				8
+#define	MINSYSVOLT_MASK					0x3F00
+
+#define	BQ2570X_REG_0E					0x0E
+#define	BQ2570X_REG_0F					0x0F
+/* TODO:check address order */
+#define	INPUTCURRENTLIM_REG				BQ2570X_REG_0F
+#define	INPUTCURRENTLIM_BASE			0
+#define	INPUTCURRENTLIM_LSB				50
+#define	INPUTCURRENTLIM_SHIFT			0
+#define	INPUTCURRENTLIM_MASK			0x7F
+
+
+#define	BQ2570X_REG_20					0x20
+#define	BQ2570X_REG_21					0x21
+#define CHARGERSTATUS_0_REG				BQ2570X_REG_20
+#define	CHARGERSTATUS_FAULT_ACOV		0x80
+#define	CHARGERSTATUS_FAULT_BATOC		0x40
+#define	CHARGERSTATUS_FAULT_ACOC		0x20
+#define	CHARGERSTATUS_SYSOVP_STAT		0x10
+#define	CHARGERSTATUS_FAULT_LATCHOFF	0x04
+#define	CHARGERSTATUS_FAULT_OTG_OVP		0x02
+#define	CHARGERSTATUS_FAULT_OTG_UCP		0x01
+
+#define	CHARGERSTATUS_1_REG				BQ2570X_REG_21
+#define	CHARGERSTATUS_IN_OTG			0x01
+#define	CHARGERSTATUS_IN_PCHRG			0x02
+#define	CHARGERSTATUS_IN_FCHRG			0x04
+#define	CHARGERSTATUS_IN_IINDPM			0x08
+#define	CHARGERSTATUS_IN_VINDPM			0x10
+#define	CHARGERSTATUS_AC_PRESENT		0x80
+
+#define	BQ2570X_REG_22					0x22
+#define	BQ2570X_REG_23					0x23
+#define	PROCHOTSTATUS_REG				BQ2570X_REG_22
+#define	PROCHOTSTATUS_MASK				0x007F
+#define	PROCHOTSTATUS_ACOK				0x0001
+#define	PROCHOTSTATUS_BATPRES			0x0002
+#define	PROCHOTSTATUS_VSYS				0x0004
+#define	PROCHOTSTATUS_IDCHG				0x0008
+#define	PROCHOTSTATUS_INOM				0x0010
+#define	PROCHOTSTATUS_ICRIT				0x0020
+#define	PROCHOTSTATUS_COMP				0x0040
+
+#define	BQ2570X_REG_24					0x24
+#define	BQ2570X_REG_25					0x25
+#define	IIN_DPM_REG						BQ2570X_REG_24
+#define	IIN_DPM_REG_BASE				0
+#define	IIN_DPM_REG_LSB					50
+#define	IIN_DPM_REG_SHIFT				8
+#define	IIN_DPM_REG_MASK				0x7F00
+
+#define	BQ2570X_REG_26					0x26
+#define	BQ2570X_REG_27					0x27
+#define	ADCVBUS_REG						BQ2570X_REG_27
+#define	ADCVBUS_BASE					0
+#define	ADCVBUS_LSB						64
+#define	ADCVBUS_SHIFT					0
+#define	ADCVBUS_MASK					0xFF
+#define	ADCPSYS_REG						BQ2570X_REG_26
+#define	ADCPSYS_SHIFT					0
+#define	ADCPSYS_BASE					0
+#define	ADCPSYS_LSB						12
+#define	ADCPSYS_MASK					0xFF
+
+#define	BQ2570X_REG_28					0x28
+#define	BQ2570X_REG_29					0x29
+
+#define	ADCIBAT_CHG_REG					BQ2570X_REG_29
+#define	ADCIBAT_CHG_LSB					64
+#define	ADCIBAT_CHG_BASE				0
+#define	ADCIBAT_CHG_SHIFT				9
+#define	ADCIBAT_CHG_MASK				0x7F
+
+#define	ADCIBAT_DSG_REG					BQ2570X_REG_28
+#define	ADCIBAT_DSG_LSB					64
+#define	ADCIBAT_DSG_BASE				0
+#define	ADCIBAT_DSG_SHIFT				9
+#define	ADCIBAT_DSG_MASK				0x7F
+
+#define	BQ2570X_REG_2A					0x2A
+#define	BQ2570X_REG_2B					0x2B
+#define	ADCIBUS_REG						BQ2570X_REG_2B
+#define	ADCIBUS_BASE					0
+#define	ADCIBUS_LSB						50
+#define	ADCIBUS_MASK					0xFF
+#define	ADCIBUS_SHIFT					0
+
+#define	ADCCMPIN_REG					BQ2570X_REG_2A
+#define	ADCCMPIN_BASE					0
+#define	ADCCMPIN_LSB					50
+#define	ADCCMPIN_MASK					0xFF
+#define	ADCCMPIN_SHIFT					0
+
+#define	BQ2570X_REG_2C					0x2C
+#define	BQ2570X_REG_2D					0x2D
+
+#define	ADCVSYS_REG						BQ2570X_REG_2D
+#define	ADCVSYS_BASE					0
+#define	ADCVSYS_LSB						64
+#define	ADCVSYS_SHIFT					0
+#define	ADCVSYS_MASK					0xFF
+
+#define	ADCVBAT_REG						BQ2570X_REG_2C
+#define	ADCVBAT_BASE					0
+#define	ADCVBAT_LSB						64
+#define	ADCVBAT_SHIFT					0
+#define	ADCVBAT_MASK					0xFF
+
+#define	BQ2570X_REG_30					0x30
+#define	BQ2570X_REG_31					0x31
+#define	CHARGEOPTION1_1_REG				BQ2570X_REG_31
+
+#define	EN_IBAT_MASK					0x80
+#define	EN_IBAT_SHIFT					7
+#define	IBAT_ENABLE						1
+#define	IBAT_DISABLE					0
+#define	EN_PROCHOT_LPWR_MASK			0x60
+#define	EN_PROCHOT_LPWR_SHIFT			5
+#define	PROCHOT_LPWR_DISABLE			0
+#define	PROCHOT_LPWR_IDCHG				1
+#define	PROCHOT_LPWR_VSYS				2
+#define	EN_PSYS_MASK					0x10
+#define	EN_PSYS_SHIFT					4
+#define	PSYS_ENABLE						1
+#define	PSYS_DISABLE					0
+#define	RSNS_RAC_MASK					0x08
+#define	RSNS_RAC_SHIFT					3
+#define	RSNS_RAC_10MOHM					0
+#define	RSNS_RAC_20MOHM					1
+#define	RSNS_RSR_MASK					0x04
+#define	RSNS_RSR_SHIFT					2
+#define	RSNS_RSR_10MOHM					0
+#define	RSNS_RSR_20MOHM					1
+
+#define	PSYS_RATIO_MASK					0x02
+#define	PSYS_RATIO_SHIFT				1
+#define	PSYS_RATIO_0P25UAW				0
+#define	PSYS_RAITO_1UAW					1
+
+#define	CHARGEOPTION1_0_REG				BQ2570X_REG_30
+#define	CMP_REF_MASK					0x80
+#define	CMP_REF_SHIFT					7
+#define	CMP_REF_2P4V					0
+#define	CMP_REF_1P3V					1
+#define	CMP_POL_MASK					0x40
+#define	CMP_POL_SHIFT					6
+#define	CMP_POL_LOW_ABOVE				0
+#define	CMP_POL_LOW_BELOW				1
+#define	CMP_DEG_MASK					0x30
+#define	CMP_DEG_SHIFT					4
+#define	CMP_DEG_DISABLE					0
+#define	CMP_DEG_1US						1
+#define	CMP_DEG_2MS						2
+#define	CMP_DEG_5S						3
+#define	FORCE_LATCHOFF_MASK				0x08
+#define	FORCE_LATCHOFF_SHIFT			3
+#define	FORCE_LATCHOFF_ENABLE			1
+#define	FORCE_LATCHOFF_DISABLE			0
+
+#define	EN_SHIP_DCHG_MASK				0x02
+#define	EN_SHIP_DCHG_SHIFT				1
+#define	SHIP_DCHG_ENABLE				1
+#define	SHIP_DCHG_DISABLE				0
+#define	AUTO_WAKEUP_EN_MASK				0x01
+#define	AUTO_WAKEUP_EN_SHIFT			0
+#define	AUTO_WAKEUP_ENABLE				1
+#define	AUTO_WAKEUP_DISABLE				0
+
+#define	BQ2570X_REG_32					0x32
+#define	BQ2570X_REG_33					0x33
+#define	CHARGEOPTION2_0_REG				BQ2570X_REG_32
+#define	EN_EXTLIM_MASK					0x80
+#define	EN_EXTLIM_SHIFT					7
+#define	EXTLIM_ENABLE					1
+#define	EXTLIM_DISABLE					0
+#define	EN_ICHG_IDCHG_MASK				0x40
+#define	EN_ICHG_IDCHG_SHIFT				6
+#define	ICHG_IDCHG_CHG					1
+#define	ICHG_IDCHG_DSG					0
+#define	Q2_OCP_MASK						0x20
+#define	Q2_OCP_SHIFT					5
+#define	Q2_OCP_300MV					0
+#define	Q2_OCP_600MV					1
+#define	ACX_OCP_MASK					0x10
+#define	ACX_OCP_SHIFT					4
+#define	ACX_OCP_150MV					0
+#define	ACX_OCP_280MV					1
+#define	EN_ACOC_MASK					0x08
+#define	EN_ACOC_SHIFT					3
+#define	ACOC_DISABLE					0
+#define	ACOC_ENABLE						1
+#define	ACOC_VTH_MASK					0x04
+#define	ACOC_VTH_SHIFT					2
+#define	ACOC_VTH_125PCT					0
+#define	ACOC_VTH_210PCT					1
+
+#define	EN_BATOC_MASK					0x02
+#define	EN_BATOC_SHIFT					1
+#define	BATOC_ENABLE					1
+#define	BATOC_DISABLE					0
+#define	BATOC_VTH_MASK					0x01
+#define	BATOC_VTH_SHIFT					0
+#define	BATOC_VTH_125PCT				0
+#define	BATOC_VTH_200PCT				1
+
+#define	CHARGEOPTION2_1_REG				BQ2579X_REG_33
+#define	PKPWR_TOVLD_DEG_MASK			0xC0
+#define	PKPWR_TOVLD_DEG_SHIFT			6
+#define	PKPWR_TOVLD_DEG_1MS				0
+#define	PKPWR_TOVLD_DEG_2MS				1
+#define	PKPWR_TOVLD_DEG_10MS			2
+#define	PKPWR_TOVLD_DEG_20MS			3
+#define	EN_PKPWR_IDPM_MASK				0x20
+#define	EN_PKPWR_IDPM_SHIFT				5
+#define	PKPWR_IDPM_ENABLE				1
+#define	PKPWR_IDPM_DISABLE				0
+#define	EN_PKPWR_VSYS_MASK				0x10
+#define	EN_PKPWR_VSYS_SHIFT				4
+#define	PKPWR_VSYS_ENABLE				1
+#define	PKPWR_VSYS_DISABLE				0
+#define	PKPWR_OVLD_STAT_MASK			0x08
+#define	PKPWR_RELAX_STAT_MASK			0x04
+#define	PKPWR_TMAX_MASK					0x03
+#define	PKPWR_TMAX_SHIFT				0
+#define	PKPWR_TMAX_5MS					0
+#define	PKPWR_TMAX_10MS					1
+#define	PKPWR_TMAX_20MS					2
+#define	PKPWR_TMAX_40MS					3
+
+#define	BQ2570X_REG_34					0x34
+#define	BQ2570X_REG_35					0x35
+#define	CHARGEOPTION3_0_REG				BQ2570X_REG_34
+#define	BATFETOFF_HIZ_MASK				0x02
+#define	BATFETOFF_HIZ_SHIFT				1
+#define	BATFET_HIZ_ON					0
+#define	BATFET_HIZ_OFF					1
+#define	PSYS_OTG_IDCHG_MASK				0x01
+#define	PSYS_OTG_IDCHG_SHIFT			0
+#define	PSYS_OTG_IDCHG_MINUS			0
+#define	PSYS_OTG_IDCHG_ONLY				1
+
+#define	CHARGEOPTION3_1_REG				BQ2570X_REG_35
+#define	EN_HIZ_MASK						0x80
+#define	EN_HIZ_SHIFT					7
+#define	HIZ_MODE_ENABLE					1
+#define	HIZ_MODE_DISABLE				0
+#define	RESET_REG_MASK					0x40
+#define	RESET_REG_SHIFT					6
+#define	RESET_REG						1
+#define	RESET_VINDPM_MASK				0x20
+#define	RESET_VINDPM_SHIFT				5
+#define	RESET_VINDPM					1
+#define	EN_OTG_MASK						0x10
+#define	EN_OTG_SHIFT					4
+#define	OTG_ENABLE						1
+#define	OTG_DISABLE						0
+#define	EN_ICO_MODE_MASK				0x08
+#define	EN_ICO_MODE_SHIFT				3
+#define	ICO_MODE_ENABLE					1
+#define	ICO_MODE_DISABLE				0
+
+
+#define	PROCHOTOPTION0_0_REG			0x36
+#define	VSYS_VTH_MASK					0xC0
+#define	VSYS_VTH_SHIFT					6
+#define	VSYS_VTH_5P75V					0
+#define	VSYS_VTH_6P00V					1
+#define	VSYS_VTH_6P25V					2
+#define	VSYS_VTH_6P50V					3
+#define	EN_PROCHOT_EXT_MASK				0x20
+#define	EN_PROCHOT_EXT_SHIFT			5
+#define	PROCHOT_EXT_ENABLE				1
+#define	PROCHOT_EXT_DISABLE				0
+#define	PROCHOT_WIDTH_MASK				0x18
+#define	PROCHOT_WIDTH_SHIFT				3
+#define	PROCHOT_WIDTH_100US				0
+#define	PROCHOT_WIDTH_1MS				1
+#define	PROCHOT_WIDTH_10MS				2
+#define	PROCHOT_WIDTH_5MS				3
+#define	PROCHOT_CLEAR_MASK				0x04
+#define	PROCHOT_CLEAR_SHIFT				2
+#define	PROCHOT_CLEAR					0
+#define	INOM_DEG_MASK					0x02
+#define	INOM_DEG_SHIFT					1
+#define	INOM_DEG_1MS					0
+#define	INOM_DEG_50MS					1
+
+#define	PROCHOTOPTION0_1_REG			0x37
+#define	ILIM2_VTH_MASK					0xF8
+#define	ILIM2_VTH_SHIFT					3
+#define	ICRIT_DEG_MASK					0x06
+#define	ICRIT_DEG_SHIFT					1
+#define	ICRIT_DEG_15US					0
+#define	ICRIT_DEG_100US					1
+#define	ICRIT_DEG_400US					2
+#define	ICRIT_DEG_800US					3
+
+#define	PROCHOTOPTION1_0_REG			0x38
+#define	PROCHOT_PROFILE_COMP_MASK		0x40
+#define	PROCHOT_PROFILE_COMP_SHIFT		6
+#define	PROCHOT_PROFILE_COMP_ENABLE		1
+#define	PROCHOT_PROFILE_COMP_DISABLE	0
+#define	PROCHOT_PROFILE_ICRIT_MASK		0x20
+#define	PROCHOT_PROFILE_ICRIT_SHIFT		5
+#define	PROCHOT_PROFILE_ICRIT_ENABLE	1
+#define	PROCHOT_PROFILE_ICRIT_DISABLE	0
+#define	PROCHOT_PROFILE_INOM_MASK		0x10
+#define	PROCHOT_PROFILE_INOM_SHIFT		6
+#define	PROCHOT_PROFILE_INOM_ENABLE		1
+#define	PROCHOT_PROFILE_INOM_DISABLE	0
+#define	PROCHOT_PROFILE_IDCH_MASK		0x08
+#define	PROCHOT_PROFILE_IDCH_SHIFT		3
+#define	PROCHOT_PROFILE_IDCH_ENABLE		1
+#define	PROCHOT_PROFILE_IDCH_DISABLE	0
+#define	PROCHOT_PROFILE_VSYS_MASK		0x04
+#define	PROCHOT_PROFILE_VSYS_SHIFT		2
+#define	PROCHOT_PROFILE_VSYS_ENABLE		1
+#define	PROCHOT_PROFILE_VSYS_DISABLE	0
+#define	PROCHOT_PROFILE_BATPRES_MASK	0x02
+#define	PROCHOT_PROFILE_BATPRES_SHIFT	1
+#define	PROCHOT_PROFILE_BATPRES_ENABLE	1
+#define	PROCHOT_PROFILE_BATPRES_DISABLE	0
+
+#define	PROCHOT_PROFILE_ACOK_MASK		0x01
+#define	PROCHOT_PROFILE_ACOK_SHIFT		0
+#define	PROCHOT_PROFILE_ACOK_ENABLE		1
+#define	PROCHOT_PROFILE_ACOK_DISABLE	0
+
+#define PROCHOTOPTION1_1_REG			0x39
+#define	IDCHG_VTH_MASK					0xFC
+#define	IDCHG_VTH_SHIFT					2
+#define	IDCHG_VTH_LSB					512
+#define	IDCHG_VTH_BASE					0
+
+#define	IDCHG_VTH_DEG_MASK				0x03
+#define	IDCHG_VTH_DEG_SHIFT				0
+#define	IDCHG_VTH_DEG_1P6MS				0
+#define	IDCHG_VTH_DEG_100US				0
+#define	IDCHG_VTH_DEG_6MS				0
+#define	IDCHG_VTH_DEG_12MS				0
+
+
+#define	ADCOPTION_0_REG					0x3A
+#define	EN_ADC_CMPIN_MASK				0x80
+#define	EN_ADC_CMPIN_SHIFT				7
+#define	ADC_CMPIN_ENABLE				1
+#define	ADC_CMPIN_DISABLE				0
+#define	EN_ADC_VBUS_MASK				0x40
+#define	EN_ADC_VBUS_SHIFT				6
+#define	ADC_VBUS_ENABLE					1
+#define	ADC_VBUS_DISABLE				0
+#define	EN_ADC_PSYS_MASK				0x20
+#define	EN_ADC_PSYS_SHIFT				5
+#define	ADC_PSYS_ENABLE					1
+#define	ADC_PSYS_DISABLE				0
+#define	EN_ADC_IIN_MASK					0x10
+#define	EN_ADC_IIN_SHIFT				4
+#define	ADC_IIN_ENABLE					1
+#define	ADC_IIN_DISABLE					0
+#define	EN_ADC_IDCHG_MASK				0x08
+#define	EN_ADC_IDCHG_SHIFT				3
+#define	ADC_IDCHG_ENABLE				1
+#define	ADC_IDCHG_DISABLE				0
+#define	EN_ADC_ICHG_MASK				0x04
+#define	EN_ADC_ICHG_SHIFT				2
+#define	ADC_ICHG_ENABLE					1
+#define	ADC_ICHG_DISABLE				0
+#define	EN_ADC_VSYS_MASK				0x02
+#define	EN_ADC_VSYS_SHIFT				1
+#define	ADC_VSYS_ENABLE					1
+#define	ADC_VSYS_DISABLE				0
+#define	EN_ADC_VBAT_MASK				0x01
+#define	EN_ADC_VBAT_SHIFT				0
+#define	ADC_VBAT_ENABLE					1
+#define	ADC_VBAT_DISABLE				0
+
+#define	ADCOPTION_1_REG					0x3B
+#define	ADC_CONV_MASK					0x80
+#define	ADC_CONV_SHIFT					7
+#define	ADC_CONV_ONESHOT				0
+#define	ADC_CONV_CONTINUOUS				1
+#define	ADC_START_MASK					0x40
+#define	ADC_START_SHIFT					6
+#define	ADC_START						1
+#define	ADC_STOP						0
+#define	ADC_FULLSCALE_MASK				0x20
+#define	ADC_FULLSCALE_SHIFT				5
+#define	ADC_FULLSCALE_2P04V				0
+#define	ADC_FULLSCALE_3P06V				1
+
+#define	MANUFACTUREID_REG				0x40
+#endif
