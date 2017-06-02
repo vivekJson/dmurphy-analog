@@ -69,6 +69,7 @@ struct tps6598x_priv {
 	int irqz_int;
 	int typec_state;
 	int current_ma;
+	int bc_charger_type;
 };
 
 static struct tps6598x_priv *tps6598x_data;
@@ -82,6 +83,7 @@ enum dual_role_property tps6598x_properties[] = {
 static enum power_supply_property tps6598x_typec_properties[] = {
 	POWER_SUPPLY_PROP_CURRENT_CAPABILITY,
 	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_TYPEC_MODE,
 };
 
 static int tps6598x_i2c_write(struct tps6598x_priv *tps6598x_data, int reg,
@@ -173,12 +175,71 @@ static int tps6598x_i2c_read(struct tps6598x_priv *tps6598x_data, int reg,
 	return ret;
 }
 
+/* Power supply functions */
+static int set_property_on_battery(enum power_supply_property prop)
+{
+	int rc = 0;
+	union power_supply_propval ret = {0, };
+
+	if (!tps6598x_data->batt_psy) {
+		tps6598x_data->batt_psy = power_supply_get_by_name("battery");
+		if (!tps6598x_data->batt_psy) {
+			pr_err("no batt psy found\n");
+			return -ENODEV;
+		}
+	}
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
+		ret.intval = tps6598x_data->current_ma;
+		rc = tps6598x_data->batt_psy->set_property(tps6598x_data->batt_psy,
+			POWER_SUPPLY_PROP_CURRENT_CAPABILITY, &ret);
+		if (rc)
+			pr_err("failed to set current max rc=%d\n", rc);
+		break;
+
+	case POWER_SUPPLY_PROP_TYPE:
+		/*
+		 * Notify the typec mode to charger. This is useful in the DFP
+		 * case where there is no notification of OTG insertion to the
+		 * charger driver.
+		 */
+		ret.intval = tps6598x_data->bc_charger_type;
+		rc = tps6598x_data->batt_psy->set_property(tps6598x_data->batt_psy,
+				POWER_SUPPLY_PROP_TYPE, &ret);
+		if (rc)
+			pr_err("failed to set typec mode rc=%d\n", rc);
+		break;
+
+	case POWER_SUPPLY_PROP_TYPEC_MODE:
+		/*
+		 * Notify the typec mode to charger. This is useful in the DFP
+		 * case where there is no notification of OTG insertion to the
+		 * charger driver.
+		 */
+		ret.intval = tps6598x_data->typec_state;
+		rc = tps6598x_data->batt_psy->set_property(tps6598x_data->batt_psy,
+				POWER_SUPPLY_PROP_TYPEC_MODE, &ret);
+		if (rc)
+			pr_err("failed to set typec mode rc=%d\n", rc);
+		break;
+	default:
+		pr_err("invalid request\n");
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
 static int tps6598x_typec_get_property(struct power_supply *psy,
 				enum power_supply_property prop,
 				union power_supply_propval *val)
 {
 	switch (prop) {
 	case POWER_SUPPLY_PROP_TYPE:
+		val->intval = tps6598x_data->bc_charger_type;
+		break;
+	case POWER_SUPPLY_PROP_TYPEC_MODE:
 		val->intval = tps6598x_data->typec_state;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
@@ -304,6 +365,8 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 {
 	enum typec_current_mode current_mode = TYPEC_CURRENT_MODE_DEFAULT;
 	int ret;
+	int current_ma;
+	int charger_type;
 	u8 obuf[3];
 	u8 mask_val;
 
@@ -317,7 +380,7 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 	switch (mask_val) {
 	case TPS6598X_REG_CUR_MODE_DETECT_DEFAULT:
 		current_mode = TYPEC_CURRENT_MODE_DEFAULT;
-		tps6598x_data->current_ma = TYPEC_STD_MA;
+		current_ma = TYPEC_STD_MA;
 		break;
 	case TPS6598X_REG_CUR_MODE_DETECT_MID:
 		current_mode = TYPEC_CURRENT_MODE_MID;
@@ -330,6 +393,30 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 	default:
 		current_mode = TYPEC_CURRENT_MODE_UNSPPORTED;
 		tps6598x_data->current_ma = 0;
+	}
+
+	if (tps6598x_data->current_ma != current_ma) {
+		tps6598x_data->current_ma = current_ma;
+		set_property_on_battery(POWER_SUPPLY_PROP_CURRENT_CAPABILITY);
+	}
+
+	mask_val = obuf[1] & TPS6598X_BCSTATUS_MASK;
+	switch (mask_val) {
+	case TPS6598X_BCSTATUS_SDP:
+		charger_type = POWER_SUPPLY_TYPE_USB_ACA;
+		break;
+	case TPS6598X_BCSTATUS_DCP:
+		charger_type = POWER_SUPPLY_TYPE_USB_DCP;
+		break;
+	case TPS6598X_BCSTATUS_CDP:
+		charger_type = POWER_SUPPLY_TYPE_USB_CDP;
+		break;
+	default:
+		tps6598x_data->bc_charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
+	}
+	if (tps6598x_data->bc_charger_type != charger_type) {
+		tps6598x_data->bc_charger_type = charger_type;
+		set_property_on_battery(POWER_SUPPLY_PROP_TYPEC_MODE);
 	}
 
 	pr_debug("%s: current mode is %d\n", __func__, current_mode);
@@ -350,7 +437,7 @@ static enum typec_current_mode tps6598x_current_advertise_get(void)
 		return current_mode;
 	}
 
-	mask_val = obuf[6] & TPS6598X_REG_CUR_MODE_ADVERTISE_MASK;
+	mask_val = obuf[1] & TPS6598X_REG_CUR_MODE_ADVERTISE_MASK;
 	switch (mask_val) {
 	case TPS6598X_REG_CUR_MODE_ADVERTISE_DEFAULT:
 		current_mode = TYPEC_CURRENT_MODE_DEFAULT;
@@ -370,12 +457,58 @@ static enum typec_current_mode tps6598x_current_advertise_get(void)
 	return current_mode;
 }
 
+static int tps6598x_set_bcenabled(int enable)
+{
+	int ret;
+	u8 obuf[18];
+	u8 bcenable;
+	u8 bcmask;
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_INT_MASK_1, &obuf);
+	if (ret < 0) {
+		pr_err("%s: read SYS_CFG error\n", __func__);
+		return -ENODEV;
+	}
+
+	if (enable)
+		bcmask = obuf[4] | BIT(0);
+	else
+		bcmask = obuf[4] & ~BIT(0);
+
+	obuf[4] = bcmask;
+
+	tps6598x_i2c_write(tps6598x_data, TPS6598X_INT_MASK_1, &(obuf[0]));
+	tps6598x_i2c_write(tps6598x_data, TPS6598X_INT_MASK_2, &(obuf[0]));
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_INT_MASK_1, &obuf);
+	if (ret < 0) {
+		pr_err("%s: read TPS6598X_INT_MASK_1 error\n", __func__);
+		return -ENODEV;
+	}
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_SYS_CFG, &obuf);
+	if (ret < 0) {
+		pr_err("%s: read SYS_CFG error\n", __func__);
+		return -ENODEV;
+	}
+
+	if (enable)
+		bcenable = obuf[5] | BIT(0);
+	else
+		bcenable = obuf[5] & ~BIT(0);
+
+	obuf[5] = bcenable;
+
+	tps6598x_i2c_write(tps6598x_data, TPS6598X_SYS_CFG, &(obuf[0]));
+
+	return ret;
+}
+
 static int tps6598x_current_advertise_set(enum typec_current_mode current_mode)
 {
 	int ret;
 	u8 obuf[18];
 	u8 mask_val;
-	u8 bcenable;
 
 	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_SYS_CFG, &obuf);
 	if (ret < 0) {
@@ -394,25 +527,16 @@ static int tps6598x_current_advertise_set(enum typec_current_mode current_mode)
 		mask_val = TPS6598X_REG_CUR_MODE_ADVERTISE_DEFAULT;
 	}
 
-	if (mask_val == (obuf[6] & TPS6598X_REG_CUR_MODE_ADVERTISE_MASK)) {
+	if (mask_val == (obuf[1] & TPS6598X_REG_CUR_MODE_ADVERTISE_MASK)) {
 		pr_info("%s: current advertise is %d already\n", __func__,
 			current_mode);
 		return 0;
 	}
 
-	obuf[6] &= ~TPS6598X_REG_CUR_MODE_ADVERTISE_MASK;
-	obuf[6] |= mask_val;
-
-	bcenable = obuf[6] | BIT(0);
-	obuf[6] = bcenable;
+	obuf[1] &= ~TPS6598X_REG_CUR_MODE_ADVERTISE_MASK;
+	obuf[1] |= mask_val;
 
 	tps6598x_i2c_write(tps6598x_data, TPS6598X_SYS_CFG, &(obuf[0]));
-
-	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_SYS_CFG, &obuf);
-	if (ret < 0) {
-		pr_err("%s: read POWER_STATUS error\n", __func__);
-		return current_mode;
-	}
 
 	pr_info("%s: current advertise set to %d\n", __func__, current_mode);
 	return 0;
@@ -448,6 +572,7 @@ static int tps6598x_get_property(struct dual_role_phy_instance *dual_role,
 	enum typec_attached_state attached_state;
 
 	attached_state = tps6598x_attached_state_detect();
+	tps6598x_current_mode_detect();
 
 	if (attached_state == TYPEC_ATTACHED_AS_DFP) {
 		if (prop == DUAL_ROLE_PROP_MODE)
@@ -585,7 +710,7 @@ static int tps6598x_set_property(struct dual_role_phy_instance *dual_role,
 static int tps6598x_property_is_writeable(struct dual_role_phy_instance *dual_role,
 			enum dual_role_property prop)
 {
-	switch(prop) {
+	switch (prop) {
 	case DUAL_ROLE_PROP_PR:
 	case DUAL_ROLE_PROP_MODE:
 		return 1;
@@ -594,48 +719,6 @@ static int tps6598x_property_is_writeable(struct dual_role_phy_instance *dual_ro
 	}
 
 	return 0;
-}
-
-/* Power supply functions */
-static int set_property_on_battery(enum power_supply_property prop)
-{
-	int rc = 0;
-	union power_supply_propval ret = {0, };
-
-	if (!tps6598x_data->batt_psy) {
-		tps6598x_data->batt_psy = power_supply_get_by_name("battery");
-		if (!tps6598x_data->batt_psy) {
-			pr_err("no batt psy found\n");
-			return -ENODEV;
-		}
-	}
-
-	switch (prop) {
-	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
-		ret.intval = tps6598x_data->current_ma;
-		rc = tps6598x_data->batt_psy->set_property(tps6598x_data->batt_psy,
-			POWER_SUPPLY_PROP_CURRENT_CAPABILITY, &ret);
-		if (rc)
-			pr_err("failed to set current max rc=%d\n", rc);
-		break;
-	case POWER_SUPPLY_PROP_TYPEC_MODE:
-		/*
-		 * Notify the typec mode to charger. This is useful in the DFP
-		 * case where there is no notification of OTG insertion to the
-		 * charger driver.
-		 */
-		ret.intval = tps6598x_data->typec_state;
-		rc = tps6598x_data->batt_psy->set_property(tps6598x_data->batt_psy,
-				POWER_SUPPLY_PROP_TYPEC_MODE, &ret);
-		if (rc)
-			pr_err("failed to set typec mode rc=%d\n", rc);
-		break;
-	default:
-		pr_err("invalid request\n");
-		rc = -EINVAL;
-	}
-
-	return rc;
 }
 
 static void tps6598x_int_work(struct work_struct *work)
@@ -790,6 +873,8 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 	}
 
 	ret = add_typec_device(&tps6598x_data->client->dev, &tps6598x_ops);
+
+	tps6598x_set_bcenabled(1);
 
 	return ret;
 
