@@ -376,6 +376,15 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 		return current_mode;
 	}
 
+	if (tps6598x_data->attached_state == TYPEC_NOT_ATTACHED) {
+		tps6598x_data->current_ma = TYPEC_CURRENT_MODE_UNSPPORTED;
+		tps6598x_data->bc_charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
+		set_property_on_battery(POWER_SUPPLY_PROP_CURRENT_CAPABILITY);
+		set_property_on_battery(POWER_SUPPLY_PROP_TYPEC_MODE);
+
+		return 0;
+	}
+
 	mask_val = obuf[1] & TPS6598X_DETECT_CURR_MASK;
 	switch (mask_val) {
 	case TPS6598X_REG_CUR_MODE_DETECT_DEFAULT:
@@ -412,14 +421,16 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 		charger_type = POWER_SUPPLY_TYPE_USB_CDP;
 		break;
 	default:
-		tps6598x_data->bc_charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
+		charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 	}
+
 	if (tps6598x_data->bc_charger_type != charger_type) {
 		tps6598x_data->bc_charger_type = charger_type;
 		set_property_on_battery(POWER_SUPPLY_PROP_TYPEC_MODE);
 	}
 
-	pr_debug("%s: current mode is %d\n", __func__, current_mode);
+	pr_info("%s: current mode is %d\n", __func__, current_mode);
+	pr_info("%s: bcstatus is is %d\n", __func__, charger_type);
 
 	return current_mode;
 }
