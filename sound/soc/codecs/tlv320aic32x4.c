@@ -62,11 +62,14 @@ struct aic32x4_rate_divs {
 
 struct aic32x4_priv {
 	struct regmap *regmap;
+	struct aic32x4_setup_data *setup;
+	struct device *dev;
 	u32 sysclk;
 	u32 power_cfg;
 	u32 micpga_routing;
 	bool swapdacs;
 	int rstn_gpio;
+	int model;
 };
 
 /* 0dB min, 0.5dB steps */
@@ -588,6 +591,37 @@ static int aic32x4_resume(struct snd_soc_codec *codec)
 	return 0;
 }
 
+static void aic32x4_setup_gpios(struct snd_soc_codec *codec)
+{
+	struct aic32x4_priv *aic32x4 = snd_soc_codec_get_drvdata(codec);
+
+	/* setup GPIO functions */
+	/* MFP1 */
+	if ( aic32x4->setup->gpio_func[0] != AIC32X4_MFPX_DEFAULT_VALUE)
+		snd_soc_write(codec, AIC32X4_DINCTL,
+		      aic32x4->setup->gpio_func[0]);
+
+	/* MFP2 */
+	if ( aic32x4->setup->gpio_func[1] != AIC32X4_MFPX_DEFAULT_VALUE)
+		snd_soc_write(codec, AIC32X4_DOUTCTL,
+		      aic32x4->setup->gpio_func[1]);
+
+	/* MFP3 */
+	if ( aic32x4->setup->gpio_func[2] != AIC32X4_MFPX_DEFAULT_VALUE)
+		snd_soc_write(codec, AIC32X4_SCLKCTL,
+		      aic32x4->setup->gpio_func[2]);
+
+	/* MFP4 */
+	if ( aic32x4->setup->gpio_func[3] != AIC32X4_MFPX_DEFAULT_VALUE)
+		snd_soc_write(codec, AIC32X4_MISOCTL,
+		      aic32x4->setup->gpio_func[3]);
+
+	/* MFP5 */
+	if ( aic32x4->setup->gpio_func[4] != AIC32X4_MFPX_DEFAULT_VALUE)
+		snd_soc_write(codec, AIC32X4_GPIOCTL,
+		      aic32x4->setup->gpio_func[4]);
+}
+
 static int aic32x4_probe(struct snd_soc_codec *codec)
 {
 	struct aic32x4_priv *aic32x4 = snd_soc_codec_get_drvdata(codec);
@@ -601,6 +635,9 @@ static int aic32x4_probe(struct snd_soc_codec *codec)
 	}
 
 	snd_soc_write(codec, AIC32X4_RESET, 0x01);
+
+	if (aic32x4->setup)
+		aic32x4_setup_gpios(codec);
 
 	/* Power platform configuration */
 	if (aic32x4->power_cfg & AIC32X4_PWR_MICBIAS_2075_LDOIN) {
@@ -673,9 +710,27 @@ static struct snd_soc_codec_driver soc_codec_dev_aic32x4 = {
 static int aic32x4_parse_dt(struct aic32x4_priv *aic32x4,
 		struct device_node *np)
 {
+	struct aic32x4_setup_data *aic32x4_setup;
+	int ret;
+
+	aic32x4_setup = devm_kzalloc(aic32x4->dev, sizeof(*aic32x4_setup),
+							GFP_KERNEL);
+	if (!aic32x4_setup)
+		return -ENOMEM;
+
 	aic32x4->swapdacs = false;
 	aic32x4->micpga_routing = 0;
-	aic32x4->rstn_gpio = of_get_named_gpio(np, "reset-gpios", 0);
+
+	ret = of_get_named_gpio(np, "gpio-reset", 0);
+	if (ret >= 0)
+		aic32x4->rstn_gpio = ret;
+	else
+		aic32x4->rstn_gpio = -1;
+
+	if (of_property_read_u32_array(np, "aic32x4-gpio-func",
+				aic32x4_setup->gpio_func, 5) >= 0) {
+		aic32x4->setup = aic32x4_setup;
+	}
 
 	return 0;
 }
@@ -698,6 +753,9 @@ static int aic32x4_i2c_probe(struct i2c_client *i2c,
 		return PTR_ERR(aic32x4->regmap);
 
 	i2c_set_clientdata(i2c, aic32x4);
+
+	aic32x4->dev = &i2c->dev;
+	aic32x4->model = id->driver_data;
 
 	if (pdata) {
 		aic32x4->power_cfg = pdata->power_cfg;
@@ -737,12 +795,14 @@ static int aic32x4_i2c_remove(struct i2c_client *client)
 
 static const struct i2c_device_id aic32x4_i2c_id[] = {
 	{ "tlv320aic32x4", 0 },
+	{ "tlv320aic32x6", 1 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, aic32x4_i2c_id);
 
 static const struct of_device_id aic32x4_of_id[] = {
 	{ .compatible = "ti,tlv320aic32x4", },
+	{ .compatible = "ti,tlv320aic32x6", },
 	{ /* senitel */ }
 };
 MODULE_DEVICE_TABLE(of, aic32x4_of_id);
