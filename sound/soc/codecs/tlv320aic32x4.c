@@ -72,6 +72,149 @@ struct aic32x4_priv {
 	int model;
 };
 
+static int aic32x4_get_mfp1_gpio(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	u8 val;
+
+	val = snd_soc_read(codec, AIC32X4_DINCTL);
+
+	ucontrol->value.integer.value[0] = (val & 0x01);
+
+	return 0;
+};
+
+static int aic32x4_set_mfp2_gpio(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	u8 val;
+	u8 gpio_check;
+
+	val = snd_soc_read(codec, AIC32X4_DOUTCTL);
+	gpio_check = (val & AIC32X4_MFP_GPIO_ENABLED);
+	if (gpio_check != AIC32X4_MFP_GPIO_ENABLED) {
+		printk(KERN_ERR "%s: MFP2 is not configure as a GPIO output\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (ucontrol->value.integer.value[0] == (val & AIC32X4_MFP2_GPIO_OUT_HIGH))
+		return 0;
+
+	if (ucontrol->value.integer.value[0])
+		val |= ucontrol->value.integer.value[0];
+	else
+		val &= ~AIC32X4_MFP2_GPIO_OUT_HIGH;
+
+	snd_soc_write(codec, AIC32X4_DOUTCTL, val);
+
+	return 0;
+};
+
+static int aic32x4_get_mfp3_gpio(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	u8 val;
+
+	val = snd_soc_read(codec, AIC32X4_SCLKCTL);
+
+	ucontrol->value.integer.value[0] = (val & 0x01);
+
+	return 0;
+};
+
+static int aic32x4_set_mfp4_gpio(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	u8 val;
+	u8 gpio_check;
+
+	val = snd_soc_read(codec, AIC32X4_MISOCTL);
+	gpio_check = (val & AIC32X4_MFP_GPIO_ENABLED);
+	if (gpio_check != AIC32X4_MFP_GPIO_ENABLED) {
+		printk(KERN_ERR "%s: MFP4 is not configure as a GPIO output\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (ucontrol->value.integer.value[0] == (val & AIC32X4_MFP5_GPIO_OUT_HIGH))
+		return 0;
+
+	if (ucontrol->value.integer.value[0])
+		val |= ucontrol->value.integer.value[0];
+	else
+		val &= ~AIC32X4_MFP5_GPIO_OUT_HIGH;
+
+	snd_soc_write(codec, AIC32X4_MISOCTL, val);
+
+	return 0;
+};
+
+static int aic32x4_get_mfp5_gpio(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	u8 val;
+
+	val = snd_soc_read(codec, AIC32X4_GPIOCTL);
+	ucontrol->value.integer.value[0] = ((val & 0x2) >> 1);
+
+	return 0;
+};
+
+static int aic32x4_set_mfp5_gpio(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	u8 val;
+	u8 gpio_check;
+
+	val = snd_soc_read(codec, AIC32X4_GPIOCTL);
+	gpio_check = (val & AIC32X4_MFP5_GPIO_OUTPUT);
+	if (gpio_check != AIC32X4_MFP5_GPIO_OUTPUT) {
+		printk(KERN_ERR "%s: MFP5 is not configure as a GPIO output\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (ucontrol->value.integer.value[0] == (val & 0x1))
+		return 0;
+
+	if (ucontrol->value.integer.value[0])
+		val |= ucontrol->value.integer.value[0];
+	else
+		val &= 0xfe;
+
+	snd_soc_write(codec, AIC32X4_GPIOCTL, val);
+
+	return 0;
+};
+
+static const struct snd_kcontrol_new aic32x4_mfp1[] = {
+	SOC_SINGLE_BOOL_EXT("MFP1 GPIO", 0, aic32x4_get_mfp1_gpio, NULL),
+};
+
+static const struct snd_kcontrol_new aic32x4_mfp2[] = {
+	SOC_SINGLE_BOOL_EXT("MFP2 GPIO", 0, NULL, aic32x4_set_mfp2_gpio),
+};
+
+static const struct snd_kcontrol_new aic32x4_mfp3[] = {
+	SOC_SINGLE_BOOL_EXT("MFP3 GPIO", 0, aic32x4_get_mfp3_gpio, NULL),
+};
+
+static const struct snd_kcontrol_new aic32x4_mfp4[] = {
+	SOC_SINGLE_BOOL_EXT("MFP4 GPIO", 0, NULL, aic32x4_set_mfp4_gpio),
+};
+
+static const struct snd_kcontrol_new aic32x4_mfp5[] = {
+	SOC_SINGLE_BOOL_EXT("MFP5 GPIO", 0, aic32x4_get_mfp5_gpio,
+		aic32x4_set_mfp5_gpio),
+};
+
 /* 0dB min, 0.5dB steps */
 static DECLARE_TLV_DB_SCALE(tlv_step_0_5, 0, 50, 0);
 /* -63.5dB min, 0.5dB steps */
@@ -597,29 +740,44 @@ static void aic32x4_setup_gpios(struct snd_soc_codec *codec)
 
 	/* setup GPIO functions */
 	/* MFP1 */
-	if ( aic32x4->setup->gpio_func[0] != AIC32X4_MFPX_DEFAULT_VALUE)
+	if (aic32x4->setup->gpio_func[0] != AIC32X4_MFPX_DEFAULT_VALUE) {
 		snd_soc_write(codec, AIC32X4_DINCTL,
 		      aic32x4->setup->gpio_func[0]);
+		snd_soc_add_codec_controls(codec, aic32x4_mfp1,
+			ARRAY_SIZE(aic32x4_mfp1));
+	}
 
 	/* MFP2 */
-	if ( aic32x4->setup->gpio_func[1] != AIC32X4_MFPX_DEFAULT_VALUE)
+	if (aic32x4->setup->gpio_func[1] != AIC32X4_MFPX_DEFAULT_VALUE) {
 		snd_soc_write(codec, AIC32X4_DOUTCTL,
 		      aic32x4->setup->gpio_func[1]);
+		snd_soc_add_codec_controls(codec, aic32x4_mfp2,
+			ARRAY_SIZE(aic32x4_mfp2));
+	}
 
 	/* MFP3 */
-	if ( aic32x4->setup->gpio_func[2] != AIC32X4_MFPX_DEFAULT_VALUE)
+	if (aic32x4->setup->gpio_func[2] != AIC32X4_MFPX_DEFAULT_VALUE) {
 		snd_soc_write(codec, AIC32X4_SCLKCTL,
 		      aic32x4->setup->gpio_func[2]);
+		snd_soc_add_codec_controls(codec, aic32x4_mfp3,
+			ARRAY_SIZE(aic32x4_mfp3));
+	}
 
 	/* MFP4 */
-	if ( aic32x4->setup->gpio_func[3] != AIC32X4_MFPX_DEFAULT_VALUE)
+	if (aic32x4->setup->gpio_func[3] != AIC32X4_MFPX_DEFAULT_VALUE) {
 		snd_soc_write(codec, AIC32X4_MISOCTL,
 		      aic32x4->setup->gpio_func[3]);
+		snd_soc_add_codec_controls(codec, aic32x4_mfp4,
+			ARRAY_SIZE(aic32x4_mfp4));
+	}
 
 	/* MFP5 */
-	if ( aic32x4->setup->gpio_func[4] != AIC32X4_MFPX_DEFAULT_VALUE)
+	if (aic32x4->setup->gpio_func[4] != AIC32X4_MFPX_DEFAULT_VALUE) {
 		snd_soc_write(codec, AIC32X4_GPIOCTL,
 		      aic32x4->setup->gpio_func[4]);
+		snd_soc_add_codec_controls(codec, aic32x4_mfp5,
+			ARRAY_SIZE(aic32x4_mfp5));
+	}
 }
 
 static int aic32x4_probe(struct snd_soc_codec *codec)
