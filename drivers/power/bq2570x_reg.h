@@ -177,7 +177,7 @@
 #define	BQ2570X_REG_26					0x26
 #define	BQ2570X_REG_27					0x27
 #define	ADCVBUS_REG						BQ2570X_REG_27
-#define	ADCVBUS_BASE					0
+#define	ADCVBUS_BASE					3200
 #define	ADCVBUS_LSB						64
 #define	ADCVBUS_SHIFT					0
 #define	ADCVBUS_MASK					0xFF
@@ -226,7 +226,7 @@
 #define	ADCVSYS_MASK					0xFF
 
 #define	ADCVBAT_REG						BQ2570X_REG_2C
-#define	ADCVBAT_BASE					0
+#define	ADCVBAT_BASE					2880
 #define	ADCVBAT_LSB						64
 #define	ADCVBAT_SHIFT					0
 #define	ADCVBAT_MASK					0xFF

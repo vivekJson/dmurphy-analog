@@ -948,7 +948,7 @@ static int bq2570x_charging_disable(struct bq2570x *bq, int reason, int disable)
 
 	return ret;
 }
-
+#if 0
 static struct power_supply *get_bms_psy(struct bq2570x *bq)
 {
 	if (bq->bms_psy)
@@ -962,18 +962,15 @@ static struct power_supply *get_bms_psy(struct bq2570x *bq)
 
 	return bq->bms_psy;
 }
+#endif
 
 static int bq2570x_get_batt_property(struct bq2570x *bq,
 				     enum power_supply_property psp,
 				     union power_supply_propval *val)
 {
-	struct power_supply *bms_psy = get_bms_psy(bq);
 	int ret;
 
-	if (bms_psy == NULL)
-		return 0;
-
-	ret = bms_psy->get_property(bms_psy, psp, val);
+	ret = bq->bms_psy->get_property(bms_psy, psp, val);
 
 	return ret;
 }
@@ -1514,8 +1511,7 @@ static void bq2570x_dump_status(struct bq2570x *bq)
 	if (bq->iindpm_triggered)
 		pr_info("IINDPM triggered\n");
 
-	pr_info
-	    ("vbus volt:%d, ibus current:%d, vbat volt:%d, charge current:%d, dsg current:%d\n",
+	pr_info("vbus:%d, ibus:%d, vbat:%d,ichg:%d, idsg:%d\n",
 	     bq->vbus_volt, bq->ibus_current, bq->vbat_volt, bq->charge_current,
 	     bq->discharge_current);
 
@@ -1731,8 +1727,8 @@ static int bq2570x_charger_probe(struct i2c_client *client,
 
 	bms_psy = power_supply_get_by_name("bms");
 	if (!bms_psy) {
-		dev_dbg(&client->dev, "typec supply not found, defer probe\n");
-		bms_psy = NULL;
+		dev_dbg(&client->dev, "bms supply not found, defer probe\n");
+		return -EPROBE_DEFER;
 	}
 
 	bq = devm_kzalloc(&client->dev, sizeof(struct bq2570x), GFP_KERNEL);
