@@ -393,15 +393,15 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 		break;
 	case TPS6598X_REG_CUR_MODE_DETECT_MID:
 		current_mode = TYPEC_CURRENT_MODE_MID;
-		tps6598x_data->current_ma = TYPEC_MED_MA;
+		current_ma = TYPEC_MED_MA;
 		break;
 	case TPS6598X_REG_CUR_MODE_DETECT_HIGH:
 		current_mode = TYPEC_CURRENT_MODE_HIGH;
-		tps6598x_data->current_ma = TYPEC_HIGH_MA;
+		current_ma = TYPEC_HIGH_MA;
 		break;
 	default:
 		current_mode = TYPEC_CURRENT_MODE_UNSPPORTED;
-		tps6598x_data->current_ma = 0;
+		current_ma = 0;
 	}
 
 	if (tps6598x_data->current_ma != current_ma) {
