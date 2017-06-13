@@ -970,7 +970,12 @@ static int bq2570x_get_batt_property(struct bq2570x *bq,
 {
 	int ret;
 
-	ret = bq->bms_psy->get_property(bms_psy, psp, val);
+	if (bq->bms_psy == NULL) {
+		pr_err("%s: bms power supply is NULL\n", __func__);
+		return -ENODEV;
+	}
+
+	ret = bq->bms_psy->get_property(bq->bms_psy, psp, val);
 
 	return ret;
 }
