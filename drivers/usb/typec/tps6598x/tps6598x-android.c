@@ -53,6 +53,9 @@ static const struct tps6598x_reg_data tps6598x_reg[] = {
 	{ TPS6598X_SYS_CFG, 17, 1 },
 	{ TPS6598X_CTRL_CFG, 5, 1 },
 	{ TPS6598X_TX_SNK_CAP, 57, 1 },
+	{ TPS6598X_PDO_CONTRACT, 6, 0 },
+	{ TPS6598X_RDO_CONTRACT, 4, 0 },
+	{ TPS6598X_PD_STATUS, 4, 0 },
 };
 
 struct tps6598x_priv {
@@ -69,6 +72,7 @@ struct tps6598x_priv {
 	int irqz_int;
 	int typec_state;
 	int current_ma;
+	int current_volt;
 	int bc_charger_type;
 };
 
@@ -198,6 +202,14 @@ static int set_property_on_battery(enum power_supply_property prop)
 			pr_err("failed to set current max rc=%d\n", rc);
 		break;
 
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		ret.intval = tps6598x_data->current_volt;
+		rc = tps6598x_data->batt_psy->set_property(tps6598x_data->batt_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_NOW, &ret);
+		if (rc)
+			pr_err("failed to set voltage now rc=%d\n", rc);
+		break;
+
 	case POWER_SUPPLY_PROP_TYPE:
 		/*
 		 * Notify the typec mode to charger. This is useful in the DFP
@@ -244,6 +256,9 @@ static int tps6598x_typec_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
 		val->intval = tps6598x_data->current_ma;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		val->intval = tps6598x_data->current_volt;
 		break;
 	default:
 		return -EINVAL;
@@ -361,11 +376,53 @@ static enum typec_attached_state tps6598x_attached_state_detect(void)
 	return tps6598x_data->attached_state;
 }
 
+static int tps6598x_get_pd_voltage(void)
+{
+	u8 obuf[7];
+	int ret;
+	u16 volt;
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_PDO_CONTRACT, &obuf);
+	if (ret < 0) {
+		pr_err("%s: read SYS_CFG error\n", __func__);
+		return -EIO;
+	}
+
+	volt = ((((obuf[3] & TPS6598X_PDO_VOLT_UPPER_MASK) << TPS6598X_PDO_VOLT_UPPER_SHIFT) |
+		(obuf[2] & TPS6598X_PDO_VOLT_LOWER_MASK)) >> TPS6598X_PDO_VOLT_LOWER_SHIFT);
+
+	printk("%s: PDO Contracted voltage is %d mV\n",
+		__func__, volt * TPS6598X_PD_VOLT_ADJ);
+
+	return volt * TPS6598X_PD_VOLT_ADJ;
+}
+
+static int tps6598x_get_pd_current(void)
+{
+	u8 obuf[7];
+	int ret;
+	u16 pdo_curr;
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_PDO_CONTRACT, &obuf);
+	if (ret < 0) {
+		pr_err("%s: read SYS_CFG error\n", __func__);
+		return -EIO;
+	}
+
+	pdo_curr = (((obuf[2] << TPS6598X_PDO_CURR_UPPER_SHIFT) | obuf[1]) &
+		TPS6598X_PDO_CURR_MASK);
+
+	printk("%s: PDO Contracted current is %d mA\n",
+		__func__, pdo_curr * TPS6598X_PD_CURR_ADJ);
+
+	return pdo_curr * TPS6598X_PD_CURR_ADJ;
+}
+
 static enum typec_current_mode tps6598x_current_mode_detect(void)
 {
 	enum typec_current_mode current_mode = TYPEC_CURRENT_MODE_DEFAULT;
 	int ret;
-	int current_ma;
+	int current_ma, current_volt;
 	int charger_type;
 	u8 obuf[3];
 	u8 mask_val;
@@ -378,9 +435,11 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 
 	if (tps6598x_data->attached_state == TYPEC_NOT_ATTACHED) {
 		tps6598x_data->current_ma = TYPEC_CURRENT_MODE_UNSPPORTED;
+		tps6598x_data->current_volt = 0;
 		tps6598x_data->bc_charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 		set_property_on_battery(POWER_SUPPLY_PROP_CURRENT_CAPABILITY);
 		set_property_on_battery(POWER_SUPPLY_PROP_TYPEC_MODE);
+		set_property_on_battery(POWER_SUPPLY_PROP_VOLTAGE_NOW);
 
 		return 0;
 	}
@@ -390,24 +449,39 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 	case TPS6598X_REG_CUR_MODE_DETECT_DEFAULT:
 		current_mode = TYPEC_CURRENT_MODE_DEFAULT;
 		current_ma = TYPEC_STD_MA;
+		current_volt = 5000;
 		break;
 	case TPS6598X_REG_CUR_MODE_DETECT_MID:
 		current_mode = TYPEC_CURRENT_MODE_MID;
 		current_ma = TYPEC_MED_MA;
+		current_volt = 5000;
 		break;
 	case TPS6598X_REG_CUR_MODE_DETECT_HIGH:
 		current_mode = TYPEC_CURRENT_MODE_HIGH;
 		current_ma = TYPEC_HIGH_MA;
+		current_volt = 5000;
+		break;
+	case TPS6598X_REG_CUR_MODE_DETECT_PD:
+		current_mode = TYPEC_CURRENT_MODE_PD;
+		current_ma = tps6598x_get_pd_current();
+		current_volt = tps6598x_get_pd_voltage();
 		break;
 	default:
 		current_mode = TYPEC_CURRENT_MODE_UNSPPORTED;
 		current_ma = 0;
+		current_volt = 0;
 	}
 
 	if (tps6598x_data->current_ma != current_ma) {
 		tps6598x_data->current_ma = current_ma;
 		set_property_on_battery(POWER_SUPPLY_PROP_CURRENT_CAPABILITY);
 	}
+
+	if (tps6598x_data->current_volt != current_volt) {
+		tps6598x_data->current_volt = current_volt;
+		set_property_on_battery(POWER_SUPPLY_PROP_VOLTAGE_NOW);
+	}
+
 
 	mask_val = obuf[1] & TPS6598X_BCSTATUS_MASK;
 	switch (mask_val) {
@@ -430,7 +504,9 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 	}
 
 	pr_info("%s: current mode is %d\n", __func__, current_mode);
-	pr_info("%s: bcstatus is is %d\n", __func__, charger_type);
+	pr_info("%s: bcstatus is %d\n", __func__, charger_type);
+	pr_info("%s: current ma is %d\n", __func__, current_ma);
+	pr_info("%s: voltage is %d\n", __func__, current_volt);
 
 	return current_mode;
 }
@@ -569,10 +645,58 @@ static int tps6598x_port_mode_set(enum typec_port_mode port_mode)
 
 static ssize_t tps6598x_dump_regs(char *buf)
 {
-	char reg[TPS6598X_RX_VDM] = { 0 };
+	u8 obuf[7];
+	int i;
+	int ret;
+	u16 pdo_volt, pdo_curr;
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_STATUS, &obuf);
+	if (ret < 0)
+		pr_err("%s: read REG_ATTACH_STATUS error\n", __func__);
+
+	printk("%s: STATUS 0x%02X 0x%02X 0x%02X 0x%02X\n", __func__,
+		obuf[1], obuf[2], obuf[3], obuf[4]);
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_PWR_STATUS, &obuf);
+	if (ret < 0)
+		pr_err("%s: read REG_ATTACH_STATUS error\n", __func__);
+
+	printk("%s: PWR STATUS 0x%02X 0x%02X\n", __func__,
+		obuf[1], obuf[2]);
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_PDO_CONTRACT, &obuf);
+	if (ret < 0)
+		pr_err("%s: read SYS_CFG error\n", __func__);
+
+	pdo_curr = (((obuf[2] << TPS6598X_PDO_CURR_UPPER_SHIFT) |
+			obuf[1]) & TPS6598X_PDO_CURR_MASK);
+	printk("%s: PDO Contracted current is %d mA\n", __func__,
+		pdo_curr * TPS6598X_PD_CURR_ADJ);
+
+	pdo_volt = ((((obuf[3] & TPS6598X_PDO_VOLT_UPPER_MASK) << TPS6598X_PDO_VOLT_UPPER_SHIFT) |
+		(obuf[2] & TPS6598X_PDO_VOLT_LOWER_MASK)) >> TPS6598X_PDO_VOLT_LOWER_SHIFT);
+	printk("%s: PDO Contracted voltage is %d mV\n", __func__,
+		pdo_volt * TPS6598X_PD_VOLT_ADJ);
+
+	for (i = 0; i <= obuf[0]; i++)
+		printk("%s: PDO Contract byte %i is 0x%02X\n", __func__, i, obuf[i]);
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_RDO_CONTRACT, &obuf);
+	if (ret < 0)
+		pr_err("%s: read SYS_CFG error\n", __func__);
+
+	for (i = 0; i <= obuf[0]; i++)
+		printk("%s: RDO Contract byte %i is 0x%02X\n", __func__, i, obuf[i]);
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_PD_STATUS, &obuf);
+	if (ret < 0)
+		pr_err("%s: read PD STATUS error\n", __func__);
+
+	printk("%s: PD STATUS 0x%02X 0x%02X 0x%02X 0x%02X\n", __func__,
+		obuf[1], obuf[2], obuf[3], obuf[4]);
 
 	return scnprintf(buf, PAGE_SIZE,
-			 "0x%02X,0x%02X,0x%02X\n", reg[8], reg[9], reg[10]);
+			 "0x%02X,0x%02X,0x%02X\n", obuf[0], obuf[1], obuf[2]);
 }
 
 /* Dual Role Class Functions */
