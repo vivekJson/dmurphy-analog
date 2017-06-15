@@ -968,6 +968,9 @@ static int bqgauge_get_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
+		val->intval = bq->gauge->read_capacity_level(bq);
+		break;
+
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = bq->batt_soc;
 		break;
