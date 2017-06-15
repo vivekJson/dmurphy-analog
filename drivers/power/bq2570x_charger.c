@@ -1164,6 +1164,15 @@ static int bq2570x_charger_set_property(struct power_supply *psy,
 		bq2570x_update_charging_profile(bq);
 		break;
 
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		if (val->intval == 5000)
+			bq->ivl_mv = val->intval - 600;
+		else
+			bq->ivl_mv = val->intval - 1280;
+
+		bq2570x_update_charging_profile(bq);
+		break;
+
 	default:
 		return -EINVAL;
 	}
@@ -1184,6 +1193,7 @@ static int bq2570x_charger_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TYPE:
 	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
 	case POWER_SUPPLY_PROP_TYPEC_MODE:
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		ret = 1;
 		break;
 	default:
