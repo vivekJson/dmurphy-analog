@@ -34,6 +34,8 @@
 #define TYPEC_MED_MA			1500
 #define TYPEC_HIGH_MA			3000
 
+#define TPS6598X_BYTE_CNT_W		1
+
 static const struct tps6598x_reg_data tps6598x_reg[] = {
 	{ TPS6598X_VID, 4, 0 },
 	{ TPS6598X_DID, 4, 0 },
@@ -101,7 +103,8 @@ static int tps6598x_i2c_write(struct tps6598x_priv *tps6598x_data, int reg,
 	for (i = 0; i < reg_count; i++) {
 		if (tps6598x_reg[i].reg_num == reg) {
 			writeable = tps6598x_reg[i].writeable;
-			bytes_to_write = tps6598x_reg[i].num_of_bytes;
+			bytes_to_write = tps6598x_reg[i].num_of_bytes +
+				TPS6598X_BYTE_CNT_W;
 			break;
 		}
 
@@ -117,7 +120,8 @@ static int tps6598x_i2c_write(struct tps6598x_priv *tps6598x_data, int reg,
 		return -ENOMEM;
 
 	buf[0] = reg;
-	memcpy(&buf[1], data, bytes_to_write);
+	buf[1] = bytes_to_write;
+	memcpy(&buf[2], data, bytes_to_write);
 
 	ret = i2c_master_send(tps6598x_data->client, buf, bytes_to_write);
 	if (ret == bytes_to_write) {
