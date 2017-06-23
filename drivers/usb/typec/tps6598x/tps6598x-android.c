@@ -95,7 +95,7 @@ static enum power_supply_property tps6598x_typec_properties[] = {
 static int tps6598x_i2c_write(struct tps6598x_priv *tps6598x_data, int reg,
 				const void *data)
 {
-	unsigned i, reg_count, writeable, bytes_to_write = 0;
+	unsigned i, reg_count, writeable, bytes_to_write = 0, buf_size = 0;
 	u8 *buf;
 	int ret;
 
@@ -114,16 +114,16 @@ static int tps6598x_i2c_write(struct tps6598x_priv *tps6598x_data, int reg,
 		}
 	}
 
-	buf = kzalloc((bytes_to_write + TPS6598X_BYTE_CNT_W), GFP_KERNEL);
+	buf_size = bytes_to_write + TPS6598X_BYTE_CNT_W;
+	buf = kzalloc(buf_size, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
 	buf[0] = reg;
-	buf[1] = bytes_to_write;
-	memcpy(&buf[2], data, bytes_to_write);
+	memcpy(&buf[1], data, bytes_to_write + 1);
 
-	ret = i2c_master_send(tps6598x_data->client, buf, bytes_to_write);
-	if (ret == bytes_to_write) {
+	ret = i2c_master_send(tps6598x_data->client, buf, buf_size);
+	if (ret == buf_size) {
 		ret = 0;
 	} else {
 		if (ret >= 0)
