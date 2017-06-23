@@ -76,6 +76,7 @@ struct tps6598x_priv {
 	int current_ma;
 	int current_volt;
 	int bc_charger_type;
+	struct mutex i2c_mutex;
 };
 
 static struct tps6598x_priv *tps6598x_data;
@@ -122,7 +123,9 @@ static int tps6598x_i2c_write(struct tps6598x_priv *tps6598x_data, int reg,
 	buf[0] = reg;
 	memcpy(&buf[1], data, bytes_to_write + 1);
 
+	mutex_lock(&tps6598x_data->i2c_mutex);
 	ret = i2c_master_send(tps6598x_data->client, buf, buf_size);
+	mutex_unlock(&tps6598x_data->i2c_mutex);
 	if (ret == buf_size) {
 		ret = 0;
 	} else {
@@ -163,6 +166,7 @@ static int tps6598x_i2c_read(struct tps6598x_priv *tps6598x_data, int reg,
 
 	buf[0] = reg;
 
+	mutex_lock(&tps6598x_data->i2c_mutex);
 	ret = i2c_master_send(tps6598x_data->client, buf, 1);
 	if (ret == 1) {
 		ret = 0;
@@ -172,10 +176,12 @@ static int tps6598x_i2c_read(struct tps6598x_priv *tps6598x_data, int reg,
 
 		dev_err(&tps6598x_data->client->dev, "%s: i2c send failed (%d)\n",
 			__func__, ret);
+		mutex_unlock(&tps6598x_data->i2c_mutex);
 		return ret;
 	}
 
 	ret = i2c_master_recv(tps6598x_data->client, data, bytes_to_read);
+	mutex_unlock(&tps6598x_data->i2c_mutex);
 	if (ret < 0)
 		dev_warn(&tps6598x_data->client->dev, "i2c read data cmd failed\n");
 
@@ -946,6 +952,7 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 	if (!tps6598x_data)
 		return -ENOMEM;
 
+	mutex_init(&tps6598x_data->i2c_mutex);
 	tps6598x_data->client = client;
 	i2c_set_clientdata(client, tps6598x_data);
 
