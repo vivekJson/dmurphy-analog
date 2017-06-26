@@ -128,6 +128,10 @@ static int tps6598x_i2c_write(struct tps6598x_priv *tps6598x_data, int reg,
 	mutex_unlock(&tps6598x_data->i2c_mutex);
 	if (ret == buf_size) {
 		ret = 0;
+#ifdef DEBUG_I2C_DUMP
+		pr_info("%s: Write register = 0x%02x:\n", __func__, reg);
+		print_hex_dump(KERN_INFO, "tps6598x_i2c_write: ", DUMP_PREFIX_NONE, 16, 1, buf, buf_size, false);
+#endif
 	} else {
 		if (ret >= 0)
 			ret = -EIO;
@@ -184,6 +188,12 @@ static int tps6598x_i2c_read(struct tps6598x_priv *tps6598x_data, int reg,
 	mutex_unlock(&tps6598x_data->i2c_mutex);
 	if (ret < 0)
 		dev_warn(&tps6598x_data->client->dev, "i2c read data cmd failed\n");
+	else {
+#ifdef DEBUG_I2C_DUMP
+		pr_info("%s: Read register = 0x%02x:\n", __func__, reg);
+		print_hex_dump(KERN_INFO, "tps6598x_i2c_read: ", DUMP_PREFIX_NONE, 16, 1, data, bytes_to_read, false);
+#endif
+	}
 
 	return ret;
 }
