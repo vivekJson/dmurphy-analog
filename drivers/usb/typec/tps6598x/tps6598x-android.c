@@ -77,6 +77,7 @@ struct tps6598x_priv {
 	int current_volt;
 	int bc_charger_type;
 	struct mutex i2c_mutex;
+	bool force_bc_enable;
 };
 
 static struct tps6598x_priv *tps6598x_data;
@@ -966,6 +967,7 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 	tps6598x_data->client = client;
 	i2c_set_clientdata(client, tps6598x_data);
 
+	tps6598x_data->force_bc_enable = of_property_read_bool(dev->of_node, "force_bc_enable");
 	tps6598x_data->gpio_reset = of_get_named_gpio(dev->of_node, "reset", 0);
 	if (!gpio_is_valid(tps6598x_data->gpio_reset))
 		dev_warn(&client->dev, "failed to get Reset GPIO\n");
@@ -1029,7 +1031,8 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 
 	ret = add_typec_device(&tps6598x_data->client->dev, &tps6598x_ops);
 
-	tps6598x_set_bcenabled(1);
+	if (tps6598x_data->force_bc_enable)
+		tps6598x_set_bcenabled(1);
 
 	return ret;
 
