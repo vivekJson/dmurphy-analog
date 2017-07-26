@@ -328,6 +328,9 @@ static int bq2570x_set_chargecurrent(struct bq2570x *bq, uint16_t curr)
 {
 	u16 ichg;
 
+	if (curr < CHARGECURRENT_BASE)
+		curr = CHARGECURRENT_BASE;
+
 	ichg = (curr - CHARGECURRENT_BASE) / CHARGECURRENT_LSB;
 	return bq2570x_update_bits_word(bq, CHARGECURRENT_REG,
 					CHARGECURRENT_MASK,
@@ -338,6 +341,9 @@ static int bq2570x_set_chargevolt(struct bq2570x *bq, uint16_t volt)
 {
 	u16 val;
 
+	if (volt < CHARGEVOLT_BASE)
+		volt = CHARGEVOLT_BASE;
+
 	val = (volt - CHARGEVOLT_BASE) / CHARGEVOLT_LSB;
 	return bq2570x_update_bits_word(bq, CHARGEVOLT_REG, CHARGEVOLT_MASK,
 					val << CHARGEVOLT_SHIFT);
@@ -346,6 +352,10 @@ static int bq2570x_set_chargevolt(struct bq2570x *bq, uint16_t volt)
 static int bq2570x_set_input_volt_limit(struct bq2570x *bq, int volt)
 {
 	u16 val;
+
+	if (volt < INPUTVOLTLIM_BASE)
+		volt = INPUTVOLTLIM_BASE;
+
 	val = (volt - INPUTVOLTLIM_BASE) / INPUTVOLTLIM_LSB;
 
 	return bq2570x_update_bits_word(bq, INPUTVOLTLIM_REG, INPUTVOLTLIM_MASK,
@@ -355,6 +365,9 @@ static int bq2570x_set_input_volt_limit(struct bq2570x *bq, int volt)
 static int bq2570x_set_input_current_limit(struct bq2570x *bq, int curr)
 {
 	u8 val;
+
+	if (curr < INPUTCURRENTLIM_BASE)
+		curr =  INPUTCURRENTLIM_BASE;
 
 	val = (curr - INPUTCURRENTLIM_BASE) / INPUTCURRENTLIM_LSB;
 	return bq2570x_update_bits_byte(bq, INPUTCURRENTLIM_REG,
@@ -1169,6 +1182,9 @@ static int bq2570x_charger_set_property(struct power_supply *psy,
 			bq->ivl_mv = val->intval - 600;
 		else
 			bq->ivl_mv = val->intval - 1280;
+
+		if (bq->ivl_mv < 4400)
+			bq->ivl_mv = 4400;
 
 		bq2570x_update_charging_profile(bq);
 		break;

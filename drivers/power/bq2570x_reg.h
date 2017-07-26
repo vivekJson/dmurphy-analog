@@ -193,13 +193,13 @@
 #define	ADCIBAT_CHG_REG					BQ2570X_REG_29
 #define	ADCIBAT_CHG_LSB					64
 #define	ADCIBAT_CHG_BASE				0
-#define	ADCIBAT_CHG_SHIFT				9
+#define	ADCIBAT_CHG_SHIFT				0
 #define	ADCIBAT_CHG_MASK				0x7F
 
 #define	ADCIBAT_DSG_REG					BQ2570X_REG_28
-#define	ADCIBAT_DSG_LSB					64
+#define	ADCIBAT_DSG_LSB					256
 #define	ADCIBAT_DSG_BASE				0
-#define	ADCIBAT_DSG_SHIFT				9
+#define	ADCIBAT_DSG_SHIFT				0
 #define	ADCIBAT_DSG_MASK				0x7F
 
 #define	BQ2570X_REG_2A					0x2A
