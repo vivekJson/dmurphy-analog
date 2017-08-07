@@ -977,6 +977,21 @@ static struct power_supply *get_bms_psy(struct bq2570x *bq)
 }
 #endif
 
+static int purify_voltage_now(int in_mv)
+{
+	int ret;
+
+	if (in_mv == 5000)
+		ret = in_mv - 600;
+	else
+		ret = in_mv - 1280;
+
+	if (ret < 4400)
+		ret = 4400;
+
+	return ret;
+}
+
 static int bq2570x_get_batt_property(struct bq2570x *bq,
 				     enum power_supply_property psp,
 				     union power_supply_propval *val)
@@ -1178,14 +1193,7 @@ static int bq2570x_charger_set_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		if (val->intval == 5000)
-			bq->ivl_mv = val->intval - 600;
-		else
-			bq->ivl_mv = val->intval - 1280;
-
-		if (bq->ivl_mv < 4400)
-			bq->ivl_mv = 4400;
-
+		bq->ivl_mv = purify_voltage_now(val->intval);
 		bq2570x_update_charging_profile(bq);
 		break;
 
@@ -1295,6 +1303,38 @@ static void bq2570x_external_power_changed(struct power_supply *psy)
 		pr_info("could not set usb online state, ret=%d\n", ret);
 #endif
 
+}
+
+static void determine_initial_typec_state(struct bq2570x *bq)
+{
+	int ret;
+	union power_supply_propval val;
+
+	/* if system bootup with adapter plugin, TYPEC PD event
+	 * will be missed, so here to get them explicitly.
+	 */
+	if (!bq->typec_psy->get_property)
+		return;
+
+	ret = bq->typec_psy->get_property(bq->typec_psy,
+					POWER_SUPPLY_PROP_TYPE, &val);
+	if (!ret)
+		bq->supply_type = val.intval;
+
+	ret = bq->typec_psy->get_property(bq->typec_psy,
+					  POWER_SUPPLY_PROP_CURRENT_CAPABILITY,
+					  &val);
+	if (!ret)
+		bq->icl_ma = val.intval;
+
+	ret = bq->typec_psy->get_property(bq->typec_psy,
+					POWER_SUPPLY_PROP_VOLTAGE_NOW,
+					&val);
+	if (!ret)
+		bq->ivl_mv = purify_voltage_now(val.intval);
+
+	pr_info("Initial type-c input current limit = %d\n ma", bq->icl_ma);
+	pr_info("Initial type-c input voltage limit = %d\n mv", bq->ivl_mv);
 }
 
 static int bq2570x_psy_register(struct bq2570x *bq)
@@ -1478,6 +1518,9 @@ static int bq2570x_init_device(struct bq2570x *bq)
 	bq->chg_mv = bq->platform_data->chg_mv;
 	bq->chg_ma = bq->platform_data->chg_ma;
 
+	/* Determine type C state */
+	determine_initial_typec_state(bq);
+
 	/* set initial charging profile */
 	bq2570x_update_charging_profile(bq);
 
@@ -1646,34 +1689,6 @@ static void bq2570x_monitor_workfunc(struct work_struct *work)
 	schedule_delayed_work(&bq->monitor_work, 5 * HZ);
 }
 
-static void determine_initial_status(struct bq2570x *bq)
-{
-	int ret;
-	union power_supply_propval val;
-
-	if (!bq->typec_psy->get_property)
-		return;
-
-	/* if system bootup with adapter plugin, TYPEC PD event
-	 * will be missed, so here to get them explicitly.
-	 */
-	ret = bq->typec_psy->get_property(bq->typec_psy,
-					  POWER_SUPPLY_PROP_TYPE, &val);
-	if (!ret)
-		bq->supply_type = val.intval;
-
-	ret = bq->typec_psy->get_property(bq->typec_psy,
-					  POWER_SUPPLY_PROP_CURRENT_CAPABILITY,
-					  &val);
-	if (!ret)
-		bq->icl_ma = val.intval;
-
-	bq2570x_update_charging_profile(bq);
-
-	set_usb_present(bq);
-	set_usb_online(bq);
-}
-
 static int show_registers(struct seq_file *m, void *data)
 {
 	struct bq2570x *bq = m->private;
@@ -1825,7 +1840,9 @@ static int bq2570x_charger_probe(struct i2c_client *client,
 			pr_err("Unable to request otg gpio ret=%d\n", ret);
 	}
 
-	determine_initial_status(bq);
+	bq2570x_update_charging_profile(bq);
+	set_usb_present(bq);
+	set_usb_online(bq);
 	schedule_delayed_work(&bq->monitor_work, 0);
 
 	pr_info("bq2570x probe successfully, ManufactureID:%d\n!",
