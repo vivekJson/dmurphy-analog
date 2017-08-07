@@ -454,7 +454,7 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 	}
 
 	if (tps6598x_data->attached_state == TYPEC_NOT_ATTACHED) {
-		tps6598x_data->current_ma = TYPEC_CURRENT_MODE_UNSPPORTED;
+		tps6598x_data->current_ma = TYPEC_CURRENT_MODE_DEFAULT;
 		tps6598x_data->current_volt = 0;
 		tps6598x_data->bc_charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 		set_property_on_battery(POWER_SUPPLY_PROP_CURRENT_CAPABILITY);
