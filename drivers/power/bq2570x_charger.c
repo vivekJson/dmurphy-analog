@@ -197,7 +197,7 @@ static int __bq2570x_read_word(struct bq2570x *bq, u8 reg, u16 *data)
 	return 0;
 }
 
-static int __bq2570x_write_word(struct bq2570x *bq, int reg, u8 val)
+static int __bq2570x_write_word(struct bq2570x *bq, u8 reg, u16 val)
 {
 	s32 ret;
 
@@ -737,7 +737,7 @@ int bq2570x_set_adc_fullscale(struct bq2570x *bq, int scale)
 	val <<= ADC_FULLSCALE_SHIFT;
 
 	return bq2570x_update_bits_byte(bq, ADCOPTION_1_REG,
-					ADC_FULLSCALE_SHIFT, val);
+					ADC_FULLSCALE_MASK, val);
 }
 EXPORT_SYMBOL_GPL(bq2570x_set_adc_fullscale);
 
