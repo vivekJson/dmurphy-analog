@@ -23,6 +23,7 @@
 #include <linux/interrupt.h>
 #include <linux/of_device.h>
 #include <linux/power_supply.h>
+#include <linux/delay.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/class-dual-role.h>
 #include <linux/usb/usb_typec.h>
@@ -35,6 +36,9 @@
 #define TYPEC_HIGH_MA			3000
 
 #define TPS6598X_BYTE_CNT_W		2
+
+#define TPS6598X_REG_STABLE_ATTEMPTS 5
+#define TPS6598X_REG_STABLE_WAIT_MS  250
 
 static const struct tps6598x_reg_data tps6598x_reg[] = {
 	{ TPS6598X_VID, 4, 0 },
@@ -876,11 +880,85 @@ static int tps6598x_property_is_writeable(struct dual_role_phy_instance *dual_ro
 	return 0;
 }
 
+static int tps6598x_wait_for_stable_read_regs(u8 *reg_status, u8 *reg_pwr_status)
+{
+	int ret;
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_STATUS, reg_status);
+	if (ret < 0) {
+		pr_err("%s: read TPS6598X_STATUS error, ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	ret = tps6598x_i2c_read(tps6598x_data, TPS6598X_PWR_STATUS, reg_pwr_status);
+	if (ret < 0) {
+		pr_err("%s: read TPS6598X_PWR_STATUS error, ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int tps6598x_wait_for_stable(void)
+{
+	int remaining = TPS6598X_REG_STABLE_ATTEMPTS;
+	int ret;
+	u8 prev_reg_status[5];
+	u8 prev_reg_pwr_status[3];
+	u8 reg_status[5];
+	u8 reg_pwr_status[3];
+
+	ret = tps6598x_wait_for_stable_read_regs(prev_reg_status, prev_reg_pwr_status);
+	if (ret < 0) {
+		pr_err("%s: Failed to read status registers, ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	/* If there is no cable attached, don't need to wait for registers to stabilze since we don't care */
+	if ((prev_reg_status[1] & TPS6598X_ATTACHED_STATUS) == 0x00)
+		return 0;
+
+	while (remaining > 0) {
+		remaining--;
+		msleep(TPS6598X_REG_STABLE_WAIT_MS);
+
+		ret = tps6598x_wait_for_stable_read_regs(reg_status, reg_pwr_status);
+		if (ret < 0) {
+			pr_err("%s: Failed to read status registers, ret = %d\n", __func__, ret);
+			return ret;
+		}
+
+		pr_info("%s: TPS6598X_STATUS = 0x%X 0x%X 0x%X 0x%X\n", __func__,
+			reg_status[1], reg_status[2], reg_status[3], reg_status[4]);
+		pr_info("%s: TPS6598X_PWR_STATUS = 0x%X 0x%X\n", __func__,
+			reg_pwr_status[1], reg_pwr_status[2]);
+
+		if ((memcmp(prev_reg_status, reg_status, sizeof(reg_status)) != 0) ||
+			(memcmp(prev_reg_pwr_status, reg_pwr_status, sizeof(reg_pwr_status)) != 0)) {
+			memcpy(prev_reg_status, reg_status, sizeof(reg_status));
+			memcpy(prev_reg_pwr_status, reg_pwr_status, sizeof(reg_pwr_status));
+
+			pr_info("%s: registers not stable\n", __func__);
+		} else {
+			pr_info("%s: registers stable\n", __func__);
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+
 static void tps6598x_int_work(struct work_struct *work)
 {
 	enum typec_attached_state attached_state;
 	u8 obuf[TPS6598X_MAX_READ_BYTES];
 	int ret = 0;
+
+	/* As cable detection occurs, many intermidate states are reported via the status
+	 * registers.  Instead of reporting each intermidate state to the entire system,
+	 * wait here to attempt to wait for the status registers to become stable / cable
+	 * detection to complete.  If the status registers do not become stable, just continue
+	 * on with the latest register state.
+	 */
+	tps6598x_wait_for_stable();
 
 	attached_state = tps6598x_attached_state_detect();
 	tps6598x_current_mode_detect();
