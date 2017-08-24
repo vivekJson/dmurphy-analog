@@ -73,6 +73,7 @@ struct tps6598x_priv {
 	struct work_struct tps6598x_work;
 	struct power_supply type_c_psy;
 	struct power_supply *batt_psy;
+	struct power_supply *usb_psy;
 	enum typec_attached_state attached_state;
 	enum typec_port_mode port_mode;
 	int irqz_int;
@@ -82,6 +83,9 @@ struct tps6598x_priv {
 	int bc_charger_type;
 	struct mutex i2c_mutex;
 	bool force_bc_enable;
+	int usb_mode;
+	bool far_end_usb_host;
+	bool notify_usb_data_role_change;
 };
 
 static struct tps6598x_priv *tps6598x_data;
@@ -267,6 +271,29 @@ static int set_property_on_battery(enum power_supply_property prop)
 	return rc;
 }
 
+static int set_property_on_usb(enum power_supply_property prop)
+{
+	int rc;
+	union power_supply_propval ret = {0, };
+
+	if (!tps6598x_data->notify_usb_data_role_change)
+		return 0;
+
+	switch(prop) {
+		case POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE:
+			ret.intval = tps6598x_data->usb_mode;
+			rc = tps6598x_data->usb_psy->set_property(tps6598x_data->usb_psy,
+				POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE, &ret);
+			if (rc)
+				pr_err("failed to set usb mode, rc = %d\n", rc);
+			break;
+
+		default:
+			rc = -EINVAL;
+	}
+	return rc;
+}
+
 static int tps6598x_typec_get_property(struct power_supply *psy,
 				enum power_supply_property prop,
 				union power_supply_propval *val)
@@ -393,6 +420,14 @@ static enum typec_attached_state tps6598x_attached_state_detect(void)
 	default:
 		tps6598x_data->attached_state = TYPEC_NOT_ATTACHED;
 	}
+
+	/* Determine if the far-end of cable has a USB host */
+	if ((tps6598x_data->attached_state  != TYPEC_ATTACHED_AS_UFP) ||
+			((obuf[3] & TPS6598X_REG_STATUS_USB_HOST_PRS_MASK) ==
+				TPS6598X_REG_STATUS_USB_HOST_PD_NO_USB))
+		tps6598x_data->far_end_usb_host = false;
+	else
+		tps6598x_data->far_end_usb_host = true;
 
 	pr_debug("%s: attached state is %d\n", __func__,
 			tps6598x_data->attached_state);
@@ -967,25 +1002,34 @@ static void tps6598x_int_work(struct work_struct *work)
 		typec_sink_detected_handler(TYPEC_SINK_DETECTED);
 		tps6598x_data->typec_state = POWER_SUPPLY_TYPE_DFP;
 		tps6598x_data->type_c_psy.type = POWER_SUPPLY_TYPE_DFP;
+		tps6598x_data->usb_mode = POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE_HOST;
 		ret = set_property_on_battery(POWER_SUPPLY_PROP_TYPEC_MODE);
 		if (ret)
 			pr_err("failed to set TYPEC MODE on battery psy rc=%d\n", ret);
+		set_property_on_usb(POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE);
 	} else if (TYPEC_ATTACHED_AS_UFP == attached_state) {
 		typec_sink_detected_handler(TYPEC_SINK_REMOVED);
 		/* device in UFP state */
 		tps6598x_data->typec_state = POWER_SUPPLY_TYPE_UFP;
 		tps6598x_data->type_c_psy.type = POWER_SUPPLY_TYPE_UFP;
+
+		/* If we are in UFP, and the far-end has a USB host, go to device mode */
+		tps6598x_data->usb_mode =
+			tps6598x_data->far_end_usb_host ?
+				POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE_DEVICE : POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE_HOST;
 		ret = set_property_on_battery(POWER_SUPPLY_PROP_TYPEC_MODE);
 		if (ret)
 			pr_err("failed to set TYPEC MODE on battery psy rc=%d\n", ret);
-
+		set_property_on_usb(POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE);
 	} else if (TYPEC_NOT_ATTACHED == attached_state) {
 		typec_sink_detected_handler(TYPEC_SINK_REMOVED);
 		tps6598x_data->typec_state = POWER_SUPPLY_TYPE_UNKNOWN;
 		tps6598x_data->type_c_psy.type = POWER_SUPPLY_TYPE_UNKNOWN;
+		tps6598x_data->usb_mode = POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE_HOST;
 		ret = set_property_on_battery(POWER_SUPPLY_PROP_TYPEC_MODE);
 		if (ret)
 			pr_err("failed to set TYPEC MODE on battery psy rc=%d\n", ret);
+		set_property_on_usb(POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE);
 	}
 
 	tps6598x_i2c_read(tps6598x_data, TPS6598X_INT_EVENT_1, &obuf);
@@ -1033,9 +1077,28 @@ struct typec_device_ops tps6598x_ops = {
 static int tps6598x_usb_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
+	struct power_supply *usb_psy = NULL;
+	union power_supply_propval propval = {0, };
 	struct device *dev = &client->dev;
 	int ret = 0;
 	int irq = 0;
+	bool notify_usb_data_role_change;
+
+	notify_usb_data_role_change = of_property_read_bool(dev->of_node, "notify-usb-data-role-change");
+	if (notify_usb_data_role_change) {
+		usb_psy = power_supply_get_by_name("usb");
+		if (!usb_psy) {
+			pr_err("%s: No USB power supply, deferring\n", __func__);
+			return -EPROBE_DEFER;
+		}
+
+		/* To cover cases where we need to do a data role switch on boot, make sure USB is ready */
+		ret = usb_psy->get_property(usb_psy, POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE, &propval);
+		if (ret || propval.intval == POWER_SUPPLY_PROP_USB_OTG_DATA_ROLE_NONE) {
+			pr_err("%s: USB not ready\n", __func__);
+			return -EPROBE_DEFER;
+		}
+	}
 
 	tps6598x_data = devm_kzalloc(dev, sizeof(*tps6598x_data), GFP_KERNEL);
 	if (!tps6598x_data)
@@ -1043,6 +1106,8 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 
 	mutex_init(&tps6598x_data->i2c_mutex);
 	tps6598x_data->client = client;
+	tps6598x_data->usb_psy = usb_psy;
+	tps6598x_data->notify_usb_data_role_change = notify_usb_data_role_change;
 	i2c_set_clientdata(client, tps6598x_data);
 
 	tps6598x_data->force_bc_enable = of_property_read_bool(dev->of_node, "force_bc_enable");
