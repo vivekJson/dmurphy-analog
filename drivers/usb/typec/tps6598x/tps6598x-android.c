@@ -28,6 +28,7 @@
 #include <linux/usb/class-dual-role.h>
 #include <linux/usb/usb_typec.h>
 #include <linux/usb/typec.h>
+#include <linux/debugfs.h>
 
 #include "tps6598x.h"
 
@@ -67,6 +68,7 @@ static const struct tps6598x_reg_data tps6598x_reg[] = {
 struct tps6598x_priv {
 	struct device *dev;
 	struct i2c_client *client;
+	struct dentry *debugfs_root;
 	struct dual_role_phy_instance *tps6598x_instance;
 	int gpio_int;
 	int gpio_reset;
@@ -1073,6 +1075,70 @@ struct typec_device_ops tps6598x_ops = {
 	.dump_regs = tps6598x_dump_regs
 };
 
+static int tps6598x_debugfs_registers_show(struct seq_file *m, void *data)
+{
+	const int bytes_per_row = 16;
+	int i;
+	int ret;
+	u8 buf[TPS6598X_MAX_READ_BYTES];
+	int buf_index;
+	unsigned char hexdump[TPS6598X_MAX_READ_BYTES * 4];
+	int bytes_to_print;
+
+	for (i = 0; i < ARRAY_SIZE(tps6598x_reg); i++) {
+		bytes_to_print = tps6598x_reg[i].num_of_bytes;
+		ret = tps6598x_i2c_read(tps6598x_data, tps6598x_reg[i].reg_num, buf);
+		if (ret < 0)
+			seq_printf(m, "Failed to read register 0x%02x, ret = %d\n", tps6598x_reg[i].reg_num, ret);
+		else {
+			/* Do hex dump of data, group data by 1 byte. +1 to the buffer index since
+			 * the first byte is the length read
+			 */
+			buf_index = 1;
+			hex_dump_to_buffer(buf + buf_index, bytes_to_print, bytes_per_row,
+				1, hexdump, sizeof(hexdump), false);
+			seq_printf(m, "Reg 0x%02x = %s\n", tps6598x_reg[i].reg_num, hexdump);
+
+			/* Print any remaining data */
+			bytes_to_print -= bytes_per_row;
+			buf_index += bytes_per_row;
+			while (bytes_to_print > 0 &&
+				(buf_index + bytes_to_print < sizeof(buf))) {
+				hex_dump_to_buffer(buf + buf_index, bytes_to_print, bytes_per_row,
+					1, hexdump, sizeof(hexdump), false);
+				seq_printf(m, "           %s\n", hexdump);
+				bytes_to_print -= bytes_per_row;
+				buf_index += bytes_per_row;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int tps6598x_debugfs_registers_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, tps6598x_debugfs_registers_show, tps6598x_data);
+}
+
+static const struct file_operations tps6598x_debugfs_register_ops = {
+	.owner = THIS_MODULE,
+	.open = tps6598x_debugfs_registers_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static void tps6598x_debugfs_create_entry(struct i2c_client *client)
+{
+	tps6598x_data->debugfs_root = debugfs_create_dir("tps6598x", NULL);
+	if (!tps6598x_data->debugfs_root)
+		dev_err(&client->dev, "Failed to create debugfs directory\n");
+	else {
+		debugfs_create_file("registers", S_IFREG | S_IRUGO,
+			tps6598x_data->debugfs_root, tps6598x_data, &tps6598x_debugfs_register_ops);
+	}
+}
 
 static int tps6598x_usb_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
@@ -1177,6 +1243,7 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 	if (tps6598x_data->force_bc_enable)
 		tps6598x_set_bcenabled(1);
 
+	tps6598x_debugfs_create_entry(client);
 	return ret;
 
 err_req_irq:
@@ -1189,6 +1256,9 @@ err_interrupt:
 
 static int tps6598x_usb_remove(struct i2c_client *client)
 {
+	if (tps6598x_data->debugfs_root)
+		debugfs_remove_recursive(tps6598x_data->debugfs_root);
+
 	free_irq(tps6598x_data->irqz_int, tps6598x_data);
 
 	if (tps6598x_data->tps6598x_instance)
