@@ -32,9 +32,14 @@
 
 #include "tps6598x.h"
 
-#define TYPEC_STD_MA			900
+#define USB_VBUS_5V_MV			5000
+#define TYPEC_STD_USB31_MA		900
 #define TYPEC_MED_MA			1500
 #define TYPEC_HIGH_MA			3000
+
+#define BC12_SDP_MA				500
+#define BC12_DCP_MA				1500
+#define BC12_CDP_MA				1500
 
 #define TPS6598X_BYTE_CNT_W		2
 
@@ -80,6 +85,7 @@ struct tps6598x_priv {
 	enum typec_port_mode port_mode;
 	int irqz_int;
 	int typec_state;
+	int default_usb_current_ma;
 	int current_ma;
 	int current_volt;
 	int bc_charger_type;
@@ -102,6 +108,7 @@ static enum power_supply_property tps6598x_typec_properties[] = {
 	POWER_SUPPLY_PROP_CURRENT_CAPABILITY,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_TYPEC_MODE,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW
 };
 
 static int tps6598x_i2c_write(struct tps6598x_priv *tps6598x_data, int reg,
@@ -505,32 +512,59 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 		return 0;
 	}
 
-	mask_val = obuf[1] & TPS6598X_DETECT_CURR_MASK;
-	switch (mask_val) {
-	case TPS6598X_REG_CUR_MODE_DETECT_DEFAULT:
-		current_mode = TYPEC_CURRENT_MODE_DEFAULT;
-		current_ma = TYPEC_STD_MA;
-		current_volt = 5000;
-		break;
-	case TPS6598X_REG_CUR_MODE_DETECT_MID:
-		current_mode = TYPEC_CURRENT_MODE_MID;
-		current_ma = TYPEC_MED_MA;
-		current_volt = 5000;
-		break;
-	case TPS6598X_REG_CUR_MODE_DETECT_HIGH:
-		current_mode = TYPEC_CURRENT_MODE_HIGH;
-		current_ma = TYPEC_HIGH_MA;
-		current_volt = 5000;
-		break;
-	case TPS6598X_REG_CUR_MODE_DETECT_PD:
-		current_mode = TYPEC_CURRENT_MODE_PD;
-		current_ma = tps6598x_get_pd_current();
-		current_volt = tps6598x_get_pd_voltage();
-		break;
-	default:
-		current_mode = TYPEC_CURRENT_MODE_UNSPPORTED;
-		current_ma = 0;
-		current_volt = 0;
+	/* Use BC1.2 for current/voltage if it was detected, use PD if not */
+	if (obuf[1] & TPS6598X_BCSTATUS_DETECT_MASK) {
+		current_volt = USB_VBUS_5V_MV;
+		mask_val = obuf[1] & TPS6598X_BCSTATUS_MASK;
+		switch (mask_val) {
+		case TPS6598X_BCSTATUS_SDP:
+			charger_type = POWER_SUPPLY_TYPE_USB;
+			current_ma = BC12_SDP_MA;
+			break;
+		case TPS6598X_BCSTATUS_DCP:
+			charger_type = POWER_SUPPLY_TYPE_USB_DCP;
+			current_ma = BC12_DCP_MA;
+			break;
+		case TPS6598X_BCSTATUS_CDP:
+			charger_type = POWER_SUPPLY_TYPE_USB_CDP;
+			current_ma = BC12_CDP_MA;
+			break;
+		default:
+			charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
+			current_mode = TYPEC_CURRENT_MODE_UNSPPORTED;
+			current_volt = 0;
+			current_ma = 0;
+		}
+	} else {
+		charger_type = POWER_SUPPLY_TYPE_TYPEC;
+
+		mask_val = obuf[1] & TPS6598X_DETECT_CURR_MASK;
+		switch (mask_val) {
+		case TPS6598X_REG_CUR_MODE_DETECT_DEFAULT:
+			current_mode = TYPEC_CURRENT_MODE_DEFAULT;
+			current_ma = tps6598x_data->default_usb_current_ma;
+			current_volt = USB_VBUS_5V_MV;
+			break;
+		case TPS6598X_REG_CUR_MODE_DETECT_MID:
+			current_mode = TYPEC_CURRENT_MODE_MID;
+			current_ma = TYPEC_MED_MA;
+			current_volt = USB_VBUS_5V_MV;
+			break;
+		case TPS6598X_REG_CUR_MODE_DETECT_HIGH:
+			current_mode = TYPEC_CURRENT_MODE_HIGH;
+			current_ma = TYPEC_HIGH_MA;
+			current_volt = USB_VBUS_5V_MV;
+			break;
+		case TPS6598X_REG_CUR_MODE_DETECT_PD:
+			current_mode = TYPEC_CURRENT_MODE_PD;
+			current_ma = tps6598x_get_pd_current();
+			current_volt = tps6598x_get_pd_voltage();
+			break;
+		default:
+			current_mode = TYPEC_CURRENT_MODE_UNSPPORTED;
+			current_ma = 0;
+			current_volt = 0;
+		}
 	}
 
 	if (tps6598x_data->current_ma != current_ma) {
@@ -543,29 +577,13 @@ static enum typec_current_mode tps6598x_current_mode_detect(void)
 		set_property_on_battery(POWER_SUPPLY_PROP_VOLTAGE_NOW);
 	}
 
-
-	mask_val = obuf[1] & TPS6598X_BCSTATUS_MASK;
-	switch (mask_val) {
-	case TPS6598X_BCSTATUS_SDP:
-		charger_type = POWER_SUPPLY_TYPE_USB_ACA;
-		break;
-	case TPS6598X_BCSTATUS_DCP:
-		charger_type = POWER_SUPPLY_TYPE_USB_DCP;
-		break;
-	case TPS6598X_BCSTATUS_CDP:
-		charger_type = POWER_SUPPLY_TYPE_USB_CDP;
-		break;
-	default:
-		charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
-	}
-
 	if (tps6598x_data->bc_charger_type != charger_type) {
 		tps6598x_data->bc_charger_type = charger_type;
 		set_property_on_battery(POWER_SUPPLY_PROP_TYPEC_MODE);
 	}
 
 	pr_info("%s: current mode is %d\n", __func__, current_mode);
-	pr_info("%s: bcstatus is %d\n", __func__, charger_type);
+	pr_info("%s: charger type is %d\n", __func__, charger_type);
 	pr_info("%s: current ma is %d\n", __func__, current_ma);
 	pr_info("%s: voltage is %d\n", __func__, current_volt);
 
@@ -1175,6 +1193,14 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 	tps6598x_data->usb_psy = usb_psy;
 	tps6598x_data->notify_usb_data_role_change = notify_usb_data_role_change;
 	i2c_set_clientdata(client, tps6598x_data);
+
+	/* The 'default' charging current for Type C depends on if your system is using USB2.0 or USB3.1,
+	 * so allow this value to be specified via device tree
+	 */
+	ret = of_property_read_u32(dev->of_node, "default_usb_current_ma",
+		&tps6598x_data->default_usb_current_ma);
+	if (ret)
+		tps6598x_data->default_usb_current_ma = TYPEC_STD_USB31_MA;
 
 	tps6598x_data->force_bc_enable = of_property_read_bool(dev->of_node, "force_bc_enable");
 	tps6598x_data->gpio_reset = of_get_named_gpio(dev->of_node, "reset", 0);
