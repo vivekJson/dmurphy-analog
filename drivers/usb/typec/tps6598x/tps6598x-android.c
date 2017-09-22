@@ -53,6 +53,7 @@ static const struct tps6598x_reg_data tps6598x_reg[] = {
 	{ TPS6598X_MODE, 4, 0 },
 	{ TPS6598X_TYPE, 4, 0 },
 	{ TPS6598X_UID, 16, 0 },
+	{ TPS6598X_CUSTUSE, 8, 0 },
 	{ TPS6598X_VERSION, 4, 0 },
 	{ TPS6598X_INT_EVENT_1, 8, 0 },
 	{ TPS6598X_INT_EVENT_2, 8, 0 },
@@ -70,6 +71,18 @@ static const struct tps6598x_reg_data tps6598x_reg[] = {
 	{ TPS6598X_PD_STATUS, 4, 0 },
 };
 
+
+struct tps6598x_fw_ver {
+	u16 vvvv;
+	u8  mm;
+	u8  rr;
+} __attribute__((packed));
+
+struct tps6598x_custuse
+{
+	u8 buf[8];
+};
+
 struct tps6598x_priv {
 	struct device *dev;
 	struct i2c_client *client;
@@ -81,6 +94,8 @@ struct tps6598x_priv {
 	struct power_supply type_c_psy;
 	struct power_supply *batt_psy;
 	struct power_supply *usb_psy;
+	struct tps6598x_fw_ver fw_version;
+	struct tps6598x_custuse custuse;
 	enum typec_attached_state attached_state;
 	enum typec_port_mode port_mode;
 	int irqz_int;
@@ -215,6 +230,90 @@ static int tps6598x_i2c_read(struct tps6598x_priv *tps6598x_data, int reg,
 
 	return ret;
 }
+
+/* Get FW version function */
+static int tps6598x_get_version(struct tps6598x_fw_ver *base_fw_version)
+{
+	int rc = 0;
+	u8 obuf[5];
+	if ((rc = tps6598x_i2c_read(tps6598x_data, TPS6598X_VERSION, &obuf)) < 0) {
+		pr_err("%s: read REG_VERSION error rc=%d\n", __func__, rc);
+		return rc;
+	}
+	pr_debug("%s: Bytes read: 0x%d Base FW version: 0x%X 0x%X 0x%X 0x%X\n",
+		__func__, obuf[0], obuf[1], obuf[2], obuf[3], obuf[4]);
+	base_fw_version->vvvv = (obuf[4] << 8) + obuf[3];
+	base_fw_version->mm = obuf[2];
+	base_fw_version->rr = obuf[1];
+
+	return rc;
+}
+
+/* Get custuse reg data function */
+static int tps6598x_get_custuse_data(struct tps6598x_custuse *custuse_data)
+{
+	int rc = 0;
+	u8 obuf[9];
+
+	if ((rc = tps6598x_i2c_read(tps6598x_data, TPS6598X_CUSTUSE,
+			&obuf)) < 0) {
+		pr_err("%s: read REG_CUSTUSE error rc=%d\n", __func__, rc);
+		return rc;
+	}
+	pr_debug("%s: Bytes read: 0x%d TPS6598X_CUSTUSE (first 4): 0x%02X 0x%02X 0x%02X 0x%02X\n"
+		, __func__, obuf[0], obuf[1], obuf[2], obuf[3], obuf[4]);
+	pr_debug("%s: TPS6598X_CUSTUSE (last 4): 0x%02X 0x%02X 0x%02X 0x%02X\n"
+		, __func__, obuf[5], obuf[6], obuf[7], obuf[8]);
+
+	memcpy(custuse_data->buf, &obuf[1], sizeof(struct tps6598x_custuse));
+	return rc;
+}
+
+
+static ssize_t tps6598x_base_fw_version_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE,"%04X.%02X.%02X\n",
+		tps6598x_data->fw_version.vvvv, tps6598x_data->fw_version.mm,
+		tps6598x_data->fw_version.rr);
+}
+
+
+static ssize_t tps6598x_custuse_data_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE,
+		"0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\n",
+		tps6598x_data->custuse.buf[0], tps6598x_data->custuse.buf[1],
+		tps6598x_data->custuse.buf[2], tps6598x_data->custuse.buf[3],
+		tps6598x_data->custuse.buf[4], tps6598x_data->custuse.buf[5],
+		tps6598x_data->custuse.buf[6], tps6598x_data->custuse.buf[7]);
+}
+
+static ssize_t tps6598x_cust_fw_version_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE,"%04X.%02X.%02X.%02X%02X\n",
+		tps6598x_data->fw_version.vvvv, tps6598x_data->fw_version.mm,
+		tps6598x_data->fw_version.rr, tps6598x_data->custuse.buf[1],
+		tps6598x_data->custuse.buf[0]);
+}
+
+static DEVICE_ATTR(base_fw_version, S_IRUGO , tps6598x_base_fw_version_show, NULL);
+static DEVICE_ATTR(custuse_data, S_IRUGO , tps6598x_custuse_data_show, NULL);
+static DEVICE_ATTR(fw_version, S_IRUGO , tps6598x_cust_fw_version_show, NULL);
+
+static struct attribute *tps6598x_attributes[] = {
+	&dev_attr_base_fw_version.attr,
+	&dev_attr_custuse_data.attr,
+	&dev_attr_fw_version.attr,
+	NULL
+};
+
+static const struct attribute_group tps6598x_attr_group = {
+	.attrs = tps6598x_attributes,
+};
+
 
 /* Power supply functions */
 static int set_property_on_battery(enum power_supply_property prop)
@@ -1264,7 +1363,25 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 			&tps6598x_desc);
 	}
 
+	tps6598x_get_version(&tps6598x_data->fw_version);
+	tps6598x_get_custuse_data(&tps6598x_data->custuse);
+	pr_info("%s: Firmware Version :%04X.%02X.%02X.%02X%02X\n",
+		__func__, tps6598x_data->fw_version.vvvv, tps6598x_data->fw_version.mm,
+		tps6598x_data->fw_version.rr, tps6598x_data->custuse.buf[1],
+		tps6598x_data->custuse.buf[0]);
+
 	ret = add_typec_device(&tps6598x_data->client->dev, &tps6598x_ops);
+	if (ret) {
+		pr_err("%s: add_typec_device error, ret=%d\n", __func__, ret);
+		goto err_sysfs_creation;
+	}
+
+	ret = sysfs_create_group(&tps6598x_data->client->dev.kobj, &tps6598x_attr_group);
+	if (ret) {
+		dev_err(&tps6598x_data->client->dev, "%s: could not create sysfs files, ret=%d\n"
+			,__func__, ret);
+		goto err_sysfs_creation;
+	}
 
 	if (tps6598x_data->force_bc_enable)
 		tps6598x_set_bcenabled(1);
@@ -1272,6 +1389,7 @@ static int tps6598x_usb_probe(struct i2c_client *client,
 	tps6598x_debugfs_create_entry(client);
 	return ret;
 
+err_sysfs_creation:
 err_req_irq:
 	free_irq(tps6598x_data->irqz_int, tps6598x_data);
 err_irq:
@@ -1290,6 +1408,8 @@ static int tps6598x_usb_remove(struct i2c_client *client)
 	if (tps6598x_data->tps6598x_instance)
 		devm_dual_role_instance_unregister(tps6598x_data->dev,
 			tps6598x_data->tps6598x_instance);
+
+	sysfs_remove_group(&tps6598x_data->client->dev.kobj, &tps6598x_attr_group);
 
 	return 0;
 }
