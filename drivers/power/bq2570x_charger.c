@@ -83,6 +83,7 @@ struct bq2570x {
 	struct mutex profile_change_lock;
 	struct mutex charging_disable_lock;
 	struct mutex usb_online_lock;
+	struct mutex adc_lock;
 
 	bool batt_present;
 	bool usb_present;
@@ -439,6 +440,27 @@ int bq2570x_get_hiz_mode(struct bq2570x *bq, u8 *state)
 }
 EXPORT_SYMBOL_GPL(bq2570x_get_hiz_mode);
 
+int bq2570x_reset_vindpm(struct bq2570x *bq)
+{
+	u8 val;
+	int ret;
+	int retry = 0;
+
+	val = RESET_VINDPM << RESET_VINDPM_SHIFT;
+
+	ret = bq2570x_update_bits_byte(bq, CHARGEOPTION3_1_REG,
+				RESET_VINDPM_MASK, val);
+	while (retry++ < 10) {
+		msleep(5);
+		ret = bq2570x_read_byte(bq, &val, CHARGEOPTION3_1_REG);
+		if (!ret && !(val & RESET_VINDPM_MASK))
+			break;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(bq2570x_reset_vindpm);
+
 int bq2570x_set_otg_current(struct bq2570x *bq, int curr)
 {
 	u8 val;
@@ -463,6 +485,7 @@ EXPORT_SYMBOL_GPL(bq2570x_set_otg_voltage);
 int bq2570x_otg_enable(struct bq2570x *bq)
 {
 	const u8 val = OTG_ENABLE << EN_OTG_SHIFT;
+
 	return bq2570x_update_bits_byte(bq, CHARGEOPTION3_1_REG, EN_OTG_MASK,
 					val);
 }
@@ -471,6 +494,7 @@ EXPORT_SYMBOL_GPL(bq2570x_otg_enable);
 int bq2570x_otg_disable(struct bq2570x *bq)
 {
 	const u8 val = OTG_DISABLE << EN_OTG_SHIFT;
+
 	return bq2570x_update_bits_byte(bq, CHARGEOPTION3_1_REG, EN_OTG_MASK,
 					val);
 }
@@ -479,6 +503,7 @@ EXPORT_SYMBOL_GPL(bq2570x_otg_disable);
 int bq2570x_ico_enable(struct bq2570x *bq)
 {
 	const u8 val = ICO_MODE_ENABLE << EN_ICO_MODE_SHIFT;
+
 	return bq2570x_update_bits_byte(bq, CHARGEOPTION3_1_REG,
 					EN_ICO_MODE_MASK, val);
 }
@@ -487,6 +512,7 @@ EXPORT_SYMBOL_GPL(bq2570x_ico_enable);
 int bq2570x_ico_disable(struct bq2570x *bq)
 {
 	const u8 val = ICO_MODE_DISABLE << EN_ICO_MODE_SHIFT;
+
 	return bq2570x_update_bits_byte(bq, CHARGEOPTION3_1_REG,
 					EN_ICO_MODE_MASK, val);
 }
@@ -531,6 +557,7 @@ EXPORT_SYMBOL_GPL(bq2570x_ldo_mode_disable);
 int bq2570x_set_iadpt_gain(struct bq2570x *bq, int gain)
 {
 	u8 val;
+
 	if (gain == 20)
 		val = IADPT_GAIN_20X;
 	else if (gain == 40)
@@ -547,6 +574,7 @@ EXPORT_SYMBOL_GPL(bq2570x_set_iadpt_gain);
 int bq2570x_set_ibat_gain(struct bq2570x *bq, int gain)
 {
 	u8 val;
+
 	if (gain == 8)
 		val = IBAT_GAIN_8X;
 	else if (gain == 16)
@@ -667,6 +695,7 @@ EXPORT_SYMBOL_GPL(bq2570x_acoc_disable);
 int bq2570x_set_acoc_vth(struct bq2570x *bq, int vth)
 {
 	u8 val;
+
 	if (vth == 125)
 		val = ACOC_VTH_125PCT;
 	else if (vth == 210)
@@ -699,6 +728,7 @@ EXPORT_SYMBOL_GPL(bq2570x_batoc_disable);
 int bq2570x_set_batoc_vth(struct bq2570x *bq, int vth)
 {
 	u8 val;
+
 	if (vth == 125)
 		val = BATOC_VTH_125PCT;
 	else if (vth == 200)
@@ -713,6 +743,9 @@ EXPORT_SYMBOL_GPL(bq2570x_set_batoc_vth);
 int bq2570x_adc_start(struct bq2570x *bq, bool oneshot)
 {
 	u8 val, mask;
+	int ret;
+
+	mutex_lock(&bq->adc_lock);
 	if (oneshot) {
 		val = ADC_START << ADC_START_SHIFT;
 		mask = ADC_START_MASK;
@@ -721,9 +754,30 @@ int bq2570x_adc_start(struct bq2570x *bq, bool oneshot)
 		mask = ADC_CONV_MASK;
 	}
 
-	return bq2570x_update_bits_byte(bq, ADCOPTION_1_REG, mask, val);
+	ret = bq2570x_update_bits_byte(bq, ADCOPTION_1_REG, mask, val);
+
+	mutex_unlock(&bq->adc_lock);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(bq2570x_adc_start);
+
+int bq2570x_adc_stop(struct bq2570x *bq)
+{
+	u8 val, mask;
+	int ret;
+
+	mutex_lock(&bq->adc_lock);
+	val = ADC_CONV_ONESHOT << ADC_CONV_SHIFT;
+	mask = ADC_CONV_MASK;
+
+	ret = bq2570x_update_bits_byte(bq, ADCOPTION_1_REG, mask, val);
+
+	mutex_unlock(&bq->adc_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(bq2570x_adc_stop);
 
 int bq2570x_set_adc_fullscale(struct bq2570x *bq, int scale)
 {
@@ -752,6 +806,7 @@ static int bq2570x_read_vbus_volt(struct bq2570x *bq)
 {
 	int ret;
 	u8 raw;
+
 	ret = bq2570x_read_byte(bq, &raw, ADCVBUS_REG);
 	if (!ret) {
 		raw >>= ADCVBUS_SHIFT;
@@ -767,6 +822,7 @@ static int bq2570x_read_psys_volt(struct bq2570x *bq)
 {
 	int ret;
 	u8 raw;
+
 	ret = bq2570x_read_byte(bq, &raw, ADCPSYS_REG);
 	if (!ret) {
 		raw >>= ADCPSYS_SHIFT;
@@ -782,6 +838,7 @@ static int bq2570x_read_charge_current(struct bq2570x *bq)
 {
 	int ret;
 	u8 raw;
+
 	ret = bq2570x_read_byte(bq, &raw, ADCIBAT_CHG_REG);
 	if (!ret) {
 		raw >>= ADCIBAT_CHG_SHIFT;
@@ -797,6 +854,7 @@ static int bq2570x_read_discharge_current(struct bq2570x *bq)
 {
 	int ret;
 	u8 raw;
+
 	ret = bq2570x_read_byte(bq, &raw, ADCIBAT_DSG_REG);
 	if (!ret) {
 		raw >>= ADCIBAT_DSG_SHIFT;
@@ -812,6 +870,7 @@ static int bq2570x_read_vsys_volt(struct bq2570x *bq)
 {
 	int ret;
 	u8 raw;
+
 	ret = bq2570x_read_byte(bq, &raw, ADCVSYS_REG);
 	if (!ret) {
 		raw >>= ADCVSYS_SHIFT;
@@ -826,6 +885,7 @@ static int bq2570x_read_vbat_volt(struct bq2570x *bq)
 {
 	int ret;
 	u8 raw;
+
 	ret = bq2570x_read_byte(bq, &raw, ADCVBAT_REG);
 	if (!ret) {
 		raw >>= ADCVBAT_SHIFT;
@@ -840,6 +900,7 @@ static int bq2570x_read_ibus_current(struct bq2570x *bq)
 {
 	int ret;
 	u8 raw;
+
 	ret = bq2570x_read_byte(bq, &raw, ADCIBUS_REG);
 	if (!ret) {
 		raw >>= ADCIBUS_SHIFT;
@@ -855,6 +916,7 @@ static int bq2570x_read_cmpin_volt(struct bq2570x *bq)
 {
 	int ret;
 	u8 raw;
+
 	ret = bq2570x_read_byte(bq, &raw, ADCCMPIN_REG);
 	if (!ret) {
 		raw >>= ADCCMPIN_SHIFT;
@@ -1245,6 +1307,7 @@ static int bq2570x_update_charging_profile(struct bq2570x *bq)
 	if (ret < 0)
 		pr_err("couldn't set input current limit, ret=%d\n", ret);
 
+	bq2570x_reset_vindpm(bq);
 	ret = bq2570x_set_input_volt_limit(bq, bq->ivl_mv);
 	if (ret < 0)
 		pr_err("couldn't set input voltage limit, ret=%d\n", ret);
@@ -1796,6 +1859,7 @@ static int bq2570x_charger_probe(struct i2c_client *client,
 	mutex_init(&bq->profile_change_lock);
 	mutex_init(&bq->charging_disable_lock);
 	mutex_init(&bq->usb_online_lock);
+	mutex_init(&bq->adc_lock);
 
 	create_debugfs_entry(bq);
 	ret = bq2570x_detect_device(bq);
@@ -1867,6 +1931,7 @@ static int bq2570x_charger_remove(struct i2c_client *client)
 	mutex_destroy(&bq->data_lock);
 	mutex_destroy(&bq->i2c_rw_lock);
 	mutex_destroy(&bq->usb_online_lock);
+	mutex_destroy(&bq->adc_lock);
 
 	debugfs_remove_recursive(bq->debug_root);
 
