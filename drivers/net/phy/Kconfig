@@ -59,6 +59,17 @@ config SMSC_PHY
 	---help---
 	  Currently supports the LAN83C185, LAN8187 and LAN8700 PHYs
 
+
+config DP83822_PHY
+	tristate "Texas Instruments DP83822 PHY"
+	---help---
+	  Supports the DP83822 PHY.
+
+config DP83848_PHY
+	tristate "Texas Instruments DP83848 PHY"
+	---help---
+	  Supports the DP83848 PHY.
+
 config BROADCOM_PHY
 	tristate "Drivers for Broadcom PHYs"
 	---help---
