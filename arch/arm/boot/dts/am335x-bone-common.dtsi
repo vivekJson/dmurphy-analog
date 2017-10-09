@@ -270,12 +270,12 @@
 };
 
 &cpsw_emac0 {
-	phy_id = <&davinci_mdio>, <0>;
+	phy_id = <&davinci_mdio>, <1>;
 	phy-mode = "mii";
 };
 
 &cpsw_emac1 {
-	phy_id = <&davinci_mdio>, <1>;
+	phy_id = <&davinci_mdio>, <0>;
 	phy-mode = "mii";
 };
 
@@ -287,10 +287,13 @@
 };
 
 &davinci_mdio {
-	pinctrl-names = "default", "sleep";
+	pinctrl-names = "default";
 	pinctrl-0 = <&davinci_mdio_default>;
-	pinctrl-1 = <&davinci_mdio_sleep>;
+	/*pinctrl-1 = <&davinci_mdio_sleep>;*/
 	status = "okay";
+	dp83822_0: ethernet-phy@1 {
+		reg = <1>;
+	};
 };
 
 &mmc1 {
