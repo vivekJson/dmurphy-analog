@@ -331,7 +331,7 @@ static int set_property_on_battery(enum power_supply_property prop)
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
-		ret.intval = tps6598x_data->current_ma;
+		ret.intval = tps6598x_data->current_ma * 1000; /* mA to uA */
 		rc = tps6598x_data->batt_psy->set_property(tps6598x_data->batt_psy,
 			POWER_SUPPLY_PROP_CURRENT_CAPABILITY, &ret);
 		if (rc)
@@ -339,7 +339,7 @@ static int set_property_on_battery(enum power_supply_property prop)
 		break;
 
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		ret.intval = tps6598x_data->current_volt;
+		ret.intval = tps6598x_data->current_volt * 1000; /* mV to uV */
 		rc = tps6598x_data->batt_psy->set_property(tps6598x_data->batt_psy,
 			POWER_SUPPLY_PROP_VOLTAGE_NOW, &ret);
 		if (rc)
@@ -414,10 +414,10 @@ static int tps6598x_typec_get_property(struct power_supply *psy,
 		val->intval = tps6598x_data->typec_state;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
-		val->intval = tps6598x_data->current_ma;
+		val->intval = tps6598x_data->current_ma * 1000; /* mA to uA */
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = tps6598x_data->current_volt;
+		val->intval = tps6598x_data->current_volt * 1000; /* mV to uV */
 		break;
 	default:
 		return -EINVAL;
