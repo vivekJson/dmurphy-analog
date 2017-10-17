@@ -1176,7 +1176,7 @@ static int bq2570x_charger_get_property(struct power_supply *psy,
 		val->intval = bq->charge_enabled;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		val->intval = 4800000;
+		val->intval = 4800000; /* 4800 mAh */
 		break;
 
 	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
@@ -1250,12 +1250,12 @@ static int bq2570x_charger_set_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_CURRENT_CAPABILITY:
-		bq->icl_ma = val->intval;
+		bq->icl_ma = val->intval / 1000; /* uA to mA */
 		bq2570x_update_charging_profile(bq);
 		break;
 
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		bq->ivl_mv = purify_voltage_now(val->intval);
+		bq->ivl_mv = purify_voltage_now(val->intval / 1000 /* uV to mV */);
 		bq2570x_update_charging_profile(bq);
 		break;
 
@@ -1388,13 +1388,13 @@ static void determine_initial_typec_state(struct bq2570x *bq)
 					  POWER_SUPPLY_PROP_CURRENT_CAPABILITY,
 					  &val);
 	if (!ret)
-		bq->icl_ma = val.intval;
+		bq->icl_ma = val.intval / 1000; /* uA to mA */
 
 	ret = bq->typec_psy->get_property(bq->typec_psy,
 					POWER_SUPPLY_PROP_VOLTAGE_NOW,
 					&val);
 	if (!ret)
-		bq->ivl_mv = purify_voltage_now(val.intval);
+		bq->ivl_mv = purify_voltage_now(val.intval / 1000 /* uV to mV */);
 
 	pr_info("Initial type-c input current limit = %d\n ma", bq->icl_ma);
 	pr_info("Initial type-c input voltage limit = %d\n mv", bq->ivl_mv);
