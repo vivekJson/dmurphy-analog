@@ -1574,7 +1574,7 @@ static int bq2570x_init_device(struct bq2570x *bq)
 {
 	int ret;
 
-	bq2570x_disable_watchdog_timer(bq);
+	bq2570x_set_watchdog_timer(bq, WDTMR_ADJ_175S);
 
 	bq->ivl_mv = bq->platform_data->ivl_mv;
 	bq->icl_ma = bq->platform_data->icl_ma;
