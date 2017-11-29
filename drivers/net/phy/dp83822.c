@@ -23,6 +23,9 @@
 #include <linux/netdevice.h>
 
 #define DP83822_PHY_ID	        0x2000a240
+#define DP83811_TC_PHY_ID	0x2000a250
+#define DP83811_A0_PHY_ID	0x2000a251
+#define DP83811_A1_PHY_ID	0x2000a253
 #define DP83822_DEVADDR		0x1f
 
 #define MII_DP83822_PHYSCR	0x11
@@ -312,40 +315,53 @@ static int dp83822_resume(struct phy_device *phydev)
 	return 0;
 }
 
-static struct phy_driver dp83822_driver = {
-	.phy_id = DP83822_PHY_ID,
-	.phy_id_mask = 0xfffffff0,
-	.name = "TI DP83822",
-	.features = PHY_BASIC_FEATURES,
-	.flags = PHY_HAS_INTERRUPT,
-	.config_init = dp83822_config_init,
-	.soft_reset = dp83822_phy_reset,
-	.get_wol = dp83822_get_wol,
-	.set_wol = dp83822_set_wol,
-	.ack_interrupt = dp83822_ack_interrupt,
-	.config_intr = dp83822_config_intr,
-	.config_aneg = genphy_config_aneg,
-	.read_status = genphy_read_status,
-	.suspend = dp83822_suspend,
-	.resume = dp83822_resume,
+#define DP83822_PHY_DRIVER(_id, _name)	\
+{					\
+	.phy_id = _id,			\
+	.phy_id_mask = 0xfffffff0,	\
+	.name = _name,			\
+	.features = PHY_BASIC_FEATURES,	\
+	.flags = PHY_HAS_INTERRUPT,	\
+	.config_init = genphy_config_init,	\
+	.soft_reset = dp83822_phy_reset,	\
+	.get_wol = dp83822_get_wol,	\
+	.set_wol = dp83822_set_wol,	\
+	.ack_interrupt = dp83822_ack_interrupt,	\
+	.config_intr = dp83822_config_intr,	\
+	.config_aneg = genphy_config_aneg,	\
+	.read_status = genphy_read_status,	\
+	.suspend = dp83822_suspend,	\
+	.resume = dp83822_resume,	\
+	.driver	= {	\
+		.owner = THIS_MODULE, \
+	},	\
+}
+
+static struct phy_driver dp83822_driver[] = {
+	DP83822_PHY_DRIVER(DP83822_PHY_ID, "TI DP83822"),
+	DP83822_PHY_DRIVER(DP83811_TC_PHY_ID, "TI DP83TC811_TC"),
+	DP83822_PHY_DRIVER(DP83811_A0_PHY_ID, "TI DP83TC811_A0"),
+	DP83822_PHY_DRIVER(DP83811_A1_PHY_ID, "TI DP83TC811_A1"),
 };
 
 static int __init dp83822_init(void)
 {
-	return phy_driver_register(&dp83822_driver);
+	return phy_drivers_register(dp83822_driver, ARRAY_SIZE(dp83822_driver));
 }
+module_init(dp83822_init);
 
 static void __exit dp83822_exit(void)
 {
-	phy_driver_unregister(&dp83822_driver);
+	phy_drivers_unregister(dp83822_driver, ARRAY_SIZE(dp83822_driver));
 }
-
-module_init(dp83822_init);
 module_exit(dp83822_exit);
 
 static struct mdio_device_id __maybe_unused dp83822_tbl[] = {
-	{ DP83822_PHY_ID, 0xfffffff0 },
-	{ },
+	{DP83822_PHY_ID, 0xfffffff0},
+	{DP83811_TC_PHY_ID, 0xfffffff0},
+	{DP83811_A0_PHY_ID, 0xfffffff0},
+	{DP83811_A1_PHY_ID, 0xfffffff0},
+	{}
 };
 MODULE_DEVICE_TABLE(mdio, dp83822_tbl);
 
