@@ -92,6 +92,32 @@
 		>;
 	};
 
+	spi1_pins: pinmux_spi1_pins {
+		pinctrl-single,pins = <
+                        0x190 0x33      /* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+                        0x194 0x33      /* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+                        0x198 0x13      /* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+                        0x19c 0x13      /* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+#if 0
+		        0x190 (PIN_OUTPUT_PULLUP | MUX_MODE3)/* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+		        0x194 (PIN_OUTPUT_PULLUP | MUX_MODE3)      /* mcasp0_fsx.spi1_d0, OUTPUT_PULLUP | MODE3 */
+		        0x198 (PIN_INPUT_PULLDOWN | MUX_MODE3) /*0x33 mcasp0_axr0.spi1_d1, INPUT_PULLUP | MODE3 */
+		        0x19c (PIN_OUTPUT_PULLUP | MUX_MODE3)      /* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+#endif
+			0x78  (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpio1_28 OUTPUT_PULLUP | MODE7 */
+			0x40 (PIN_INPUT_PULLUP | MUX_MODE7)
+		>;
+	};
+#if 0
+	spi1_pins: pinmux_spi1_pins {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x990, PIN_OUTPUT | MUX_MODE3)		/* mcasp0_aclkx.spi1_sclk */
+			AM33XX_IOPAD(0x994, PIN_OUTPUT | MUX_MODE3)		/* mcasp0_fsx.spi1_d0 */
+			AM33XX_IOPAD(0x998, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcasp0_axr0.spi1_d1 */
+			AM33XX_IOPAD(0x99C, PIN_OUTPUT | MUX_MODE3)		/* mcasp0_ahclkr.spi1_cs0 */
+		>;
+	};
+#endif
 	uart0_pins: pinmux_uart0_pins {
 		pinctrl-single,pins = <
 			AM33XX_IOPAD(0x970, PIN_INPUT_PULLUP | MUX_MODE0)	/* uart0_rxd.uart0_rxd */
@@ -225,6 +251,23 @@
 &cppi41dma  {
 	status = "okay";
 };
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+	status = "okay";
+
+	tcan4x5x: tcan4x5x@0 {
+		compatible = "ti,tcan4x5x";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <10000000>;
+		data-ready-gpios = <&gpio1 16 GPIO_ACTIVE_LOW>;
+/*		reset-gpios = <&gpio1 27 GPIO_ACTIVE_LOW>;*/
+	};
+};
+
 
 &i2c0 {
 	pinctrl-names = "default";
