@@ -71,6 +71,14 @@
 
 #define INA2XX_RSHUNT_DEFAULT		10000
 
+/* Calibration default values */
+#define INA219_CALIBRAION_DEFAULT	4096
+#define INA219_FIXED_INT_VAL		5120
+#define INA226_CALIBRAION_DEFAULT	2048
+#define INA226_FIXED_INT_VAL		40960
+
+#define INA2XX_CURR_LSB_DIV		32768
+
 /* bit mask for reading the averaging setting in the configuration register */
 #define INA226_AVG_RD_MASK		0x0E00
 
@@ -95,12 +103,13 @@ enum ina2xx_ids { ina219, ina226 };
 
 struct ina2xx_config {
 	u16 config_default;
-	int calibration_value;
+	int calibration_default;
 	int registers;
 	int shunt_div;
 	int bus_voltage_shift;
 	int bus_voltage_lsb;	/* uV */
 	int power_lsb_factor;
+	int internal_fixed_value;
 };
 
 struct ina2xx_data {
@@ -112,27 +121,32 @@ struct ina2xx_data {
 	struct mutex config_lock;
 	struct regmap *regmap;
 
+	long calibration_value;
+	long max_expected_curr;
+
 	const struct attribute_group *groups[INA2XX_MAX_ATTRIBUTE_GROUPS];
 };
 
 static const struct ina2xx_config ina2xx_config[] = {
 	[ina219] = {
 		.config_default = INA219_CONFIG_DEFAULT,
-		.calibration_value = 4096,
+		.calibration_default = INA219_CALIBRAION_DEFAULT,
 		.registers = INA219_REGISTERS,
 		.shunt_div = 100,
 		.bus_voltage_shift = 3,
 		.bus_voltage_lsb = 4000,
 		.power_lsb_factor = 20,
+		.internal_fixed_value = INA219_FIXED_INT_VAL,
 	},
 	[ina226] = {
 		.config_default = INA226_CONFIG_DEFAULT,
-		.calibration_value = 2048,
+		.calibration_default = INA226_CALIBRAION_DEFAULT,
 		.registers = INA226_REGISTERS,
 		.shunt_div = 400,
 		.bus_voltage_shift = 0,
 		.bus_voltage_lsb = 1250,
 		.power_lsb_factor = 25,
+		.internal_fixed_value = INA226_FIXED_INT_VAL,
 	},
 };
 
@@ -174,13 +188,11 @@ static u16 ina226_interval_to_reg(int interval)
 /*
  * Calibration register is set to the best value, which eliminates
  * truncation errors on calculating current register in hardware.
- * According to datasheet (eq. 3) the best values are 2048 for
- * ina226 and 4096 for ina219. They are hardcoded as calibration_value.
  */
 static int ina2xx_calibrate(struct ina2xx_data *data)
 {
 	return regmap_write(data->regmap, INA2XX_CALIBRATION,
-			    data->config->calibration_value);
+			    data->calibration_value);
 }
 
 /*
@@ -306,12 +318,33 @@ static ssize_t ina2xx_show_value(struct device *dev,
 			ina2xx_get_value(data, attr->index, regval));
 }
 
-/*
- * In order to keep calibration register value fixed, the product
- * of current_lsb and shunt_resistor should also be fixed and equal
- * to shunt_voltage_lsb = 1 / shunt_div multiplied by 10^9 in order
- * to keep the scale.
- */
+static int ina2xx_set_calibration(struct ina2xx_data *data)
+{
+	unsigned int dividend = DIV_ROUND_CLOSEST(1000000000,
+						  data->config->shunt_div);
+
+	mutex_lock(&data->config_lock);
+
+	if (data->max_expected_curr) {
+		data->current_lsb_uA = ( data->max_expected_curr / INA2XX_CURR_LSB_DIV );
+
+		data->calibration_value = data->config->internal_fixed_value /
+					  (data->current_lsb_uA * data->rshunt);
+
+		ina2xx_calibrate(data);
+	} else {
+		data->current_lsb_uA = DIV_ROUND_CLOSEST(dividend, data->rshunt);
+	}
+
+	/* Recalculate the power lsb since current_lsb has changed */
+	data->power_lsb_uW = data->config->power_lsb_factor *
+			     data->current_lsb_uA;
+
+	mutex_unlock(&data->config_lock);
+
+	return 0;
+}
+
 static int ina2xx_set_shunt(struct ina2xx_data *data, long val)
 {
 	unsigned int dividend = DIV_ROUND_CLOSEST(1000000000,
@@ -321,9 +354,7 @@ static int ina2xx_set_shunt(struct ina2xx_data *data, long val)
 
 	mutex_lock(&data->config_lock);
 	data->rshunt = val;
-	data->current_lsb_uA = DIV_ROUND_CLOSEST(dividend, val);
-	data->power_lsb_uW = data->config->power_lsb_factor *
-			     data->current_lsb_uA;
+	ina2xx_set_calibration(data);
 	mutex_unlock(&data->config_lock);
 
 	return 0;
@@ -433,18 +464,46 @@ static const struct attribute_group ina226_group = {
 	.attrs = ina226_attrs,
 };
 
+static void ina2xx_get_device_property(struct device *dev,
+				       struct ina2xx_data *data)
+{
+	struct ina2xx_platform_data *pdata = dev_get_platdata(dev);
+	u32 val;
+
+	if (device_property_read_u32_array(dev, "shunt-resistor",
+					   &val, 1) < 0) {
+		if (pdata)
+			val = pdata->shunt_uohms;
+		else
+			val = INA2XX_RSHUNT_DEFAULT;
+	}
+
+	ina2xx_set_shunt(data, val);
+
+	if (device_property_read_u32_array(dev, "max-current-ua",
+					   &val, 1) < 0) {
+		if (pdata)
+			data->max_expected_curr = pdata->max_expected_curr;
+		else
+			data->max_expected_curr = val;
+
+		ina2xx_set_calibration(data);
+	} else {
+		data->calibration_value = data->config->calibration_default;
+	}
+}
+
 static int ina2xx_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct device *dev = &client->dev;
 	struct ina2xx_data *data;
 	struct device *hwmon_dev;
-	u32 val;
 	int ret, group = 0;
 	enum ina2xx_ids chip;
 
 	if (client->dev.of_node)
-		chip = (enum ina2xx_ids)of_device_get_match_data(&client->dev);
+		chip = (enum ina2xx_ids)device_get_match_data(&client->dev);
 	else
 		chip = id->driver_data;
 
@@ -456,16 +515,7 @@ static int ina2xx_probe(struct i2c_client *client,
 	data->config = &ina2xx_config[chip];
 	mutex_init(&data->config_lock);
 
-	if (of_property_read_u32(dev->of_node, "shunt-resistor", &val) < 0) {
-		struct ina2xx_platform_data *pdata = dev_get_platdata(dev);
-
-		if (pdata)
-			val = pdata->shunt_uohms;
-		else
-			val = INA2XX_RSHUNT_DEFAULT;
-	}
-
-	ina2xx_set_shunt(data, val);
+	ina2xx_get_device_property(&client->dev, data);
 
 	ina2xx_regmap_config.max_register = data->config->registers;
 

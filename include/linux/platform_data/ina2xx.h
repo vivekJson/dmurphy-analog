@@ -16,4 +16,5 @@
  */
 struct ina2xx_platform_data {
 	long shunt_uohms;
+	long max_expected_curr;
 };
