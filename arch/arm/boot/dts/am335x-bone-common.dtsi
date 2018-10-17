@@ -53,6 +53,19 @@
 		};
 	};
 
+	clk_mcasp0_fixed: clk_mcasp0_fixed {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24576000>;
+	};
+
+	clk_mcasp0: clk_mcasp0 {
+		#clock-cells = <0>;
+		compatible = "gpio-gate-clock";
+		clocks = <&clk_mcasp0_fixed>;
+		enable-gpios = <&gpio1 27 0>; /* BeagleBone Black Clk enable on GPIO1_27 */
+	};
+
 	vmmcsd_fixed: fixedregulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "vmmcsd_fixed";
@@ -85,6 +98,16 @@
 		pinctrl-single,pins = <
 			0x178 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart1_ctsn.i2c2_sda */
 			0x17c (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart1_rtsn.i2c2_scl */
+		>;
+	};
+
+	mcasp0_pins: mcasp0_pins {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x9ac, PIN_INPUT_PULLUP | MUX_MODE0) /* mcasp0_ahcklx.mcasp0_ahclkx */
+			AM33XX_IOPAD(0x99c, PIN_OUTPUT_PULLDOWN | MUX_MODE2) /* mcasp0_ahclkr.mcasp0_axr2*/
+			AM33XX_IOPAD(0x994, PIN_OUTPUT_PULLUP | MUX_MODE0) /* mcasp0_fsx.mcasp0_fsx */
+			AM33XX_IOPAD(0x990, PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* mcasp0_aclkx.mcasp0_aclkx */
+			AM33XX_IOPAD(0x86c, PIN_OUTPUT_PULLDOWN | MUX_MODE7) /* gpmc_a11.GPIO1_27 */
 		>;
 	};
 
@@ -242,49 +265,48 @@
 	pinctrl-0 = <&i2c2_pins>;
 
 	status = "okay";
-	clock-frequency = <100000>;
+	clock-frequency = <400000>;
 
-	cape_eeprom0: cape_eeprom0@54 {
-		compatible = "at,24c256";
-		reg = <0x54>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape0_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
+	tlv320adc5140: tlv320adc5140@4c {
+		#sound-dai-cells = <0>;
+		status = "okay";
+		compatible = "ti,tlv320adc5140";
+		reg = <0x4c>;
+		dev_num = <1>;
 
-	cape_eeprom1: cape_eeprom1@55 {
-		compatible = "at,24c256";
-		reg = <0x55>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape1_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-
-	cape_eeprom2: cape_eeprom2@56 {
-		compatible = "at,24c256";
-		reg = <0x56>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape2_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-
-	cape_eeprom3: cape_eeprom3@57 {
-		compatible = "at,24c256";
-		reg = <0x57>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape3_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
 	};
 };
 
+&sysclkout_pre_ck {
+	/*
+	 * Switch to a higher-speed clock as a base for clkout2_div_ck other than
+	 * the 32.768Hz default clock that is unusable for a CODEC. Possible
+	 * options are clk_32768_ck, l3_gclk, dpll_ddr_m2_ck, dpll_per_m2_ck, and
+	 * lcd_gclk. See am33xx-clocks.dtsi for more info.
+	 */
+	assigned-clocks = <&sysclkout_pre_ck>;
+	assigned-clock-parents = <&lcd_gclk>;
+};
+
+&clkout2_div_ck {
+	assigned-clocks = <&clkout2_div_ck>;
+	assigned-clock-rates = <12000000>;  /* Change this to try different CODEC MCLK speeds */
+};
+
+&mcasp0	{
+	#sound-dai-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp0_pins>;
+
+	status = "okay";
+
+	op-mode = <0>; /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	serial-dir = < 1 0 0 0 >; /* 0: INACTIVE, 1: TX, 2: RX */
+	tx-num-evt = <32>;
+	rx-num-evt = <32>;
+};
 
 /include/ "tps65217.dtsi"
 
