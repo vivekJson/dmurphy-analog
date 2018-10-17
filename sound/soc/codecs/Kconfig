@@ -178,6 +178,8 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_TLV320AIC3X if I2C
 	select SND_SOC_TPA6130A2 if I2C
 	select SND_SOC_TLV320DAC33 if I2C
+	select SND_SOC_TLV320ADC5140 if I2C
+	select SND_SOC_DBG_TLV320ADC5140 if SND_SOC_TLV320ADC5140
 	select SND_SOC_TSCS42XX if I2C
 	select SND_SOC_TSCS454 if I2C
 	select SND_SOC_TS3A227E if I2C
@@ -1067,6 +1069,9 @@ config SND_SOC_TLV320AIC3X
 
 config SND_SOC_TLV320DAC33
 	tristate
+
+config SND_SOC_TLV320ADC5140
+	tristate "Texas Instruments TLV320ADC5140 CODEC"
 
 config SND_SOC_TS3A227E
 	tristate "TI Headset/Mic detect and keypress chip"
