@@ -238,9 +238,16 @@ static const struct snd_kcontrol_new adc5140_snd_controls[] = {
 
 static int adc5140_reset(struct adc5140_priv *adc5140)
 {
-	int ret;
+	int ret = 0;
 
-	ret = regmap_write(adc5140->regmap, ADC5140_SW_RESET, ADC5140_RESET);
+	if (adc5140->gpio_reset) {
+		gpiod_direction_output(adc5140->gpio_reset, 0);
+		msleep(10);
+		gpiod_direction_output(adc5140->gpio_reset, 1);
+	} else {
+		ret = regmap_write(adc5140->regmap, ADC5140_SW_RESET,
+				   ADC5140_RESET);
+	}
 
 	return ret;
 }
@@ -565,11 +572,16 @@ static int adc5140_parse_node(struct adc5140_priv *adc5140)
 {
 	int ret;
 
+	adc5140->gpio_reset = devm_gpiod_get_optional(adc5140->dev,
+						   "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(adc5140->gpio_reset))
+		dev_info(adc5140->dev, "Reset GPIO not defined\n");
+
 	/* This is a hack for multiple devices */
 	ret = device_property_read_u32_array(adc5140->dev, "dev_num",
 					     &adc5140->device_number, 1);
 	if (ret) {
-		dev_err(adc5140->dev, "reg DT property missing\n");
+		dev_err(adc5140->dev, "dev_num DT property missing\n");
 		return ret;
 	}
 
