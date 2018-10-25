@@ -105,6 +105,9 @@ struct adc5140_priv {
 	int micbias_vg;
 	unsigned int sysclk;
 	u8 p_div;
+
+	/* Hack */
+	int device_number;
 };
 
 int tlv320adc5140_init_debug(struct adc5140_priv* adc5140);

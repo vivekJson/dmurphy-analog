@@ -380,11 +380,65 @@ static const struct snd_soc_dai_ops adc5140_dai_ops = {
 	.digital_mute	= adc5140_dac_mute,
 };
 
+struct adc5140_hack_table {
+	uint8_t reg;
+	uint8_t value;
+};
+
+static struct adc5140_hack_table tlv320adc5140_dev0[] = {
+	{ ADC5140_ASI_CFG0, 0x35 },
+	{ ADC5140_ASI_CFG1, 0xa0 },
+	{ ADC5140_ASI_CH1, 0x00 },
+	{ ADC5140_ASI_CH2, 0x01 },
+	{ ADC5140_ASI_CH3, 0x02 },
+	{ ADC5140_ASI_CH4, 0x03 },
+	{ ADC5140_CH1_CFG1, 0x00 },
+	{ ADC5140_CH2_CFG1, 0x00 },
+	{ ADC5140_CH3_CFG1, 0x00 },
+	{ ADC5140_CH4_CFG1, 0x00 },
+	{ ADC5140_CH1_CFG2, 0xff },
+	{ ADC5140_CH2_CFG2, 0xff },
+	{ ADC5140_CH3_CFG2, 0xff },
+	{ ADC5140_CH4_CFG2, 0xff },
+	{ ADC5140_DRE_CFG0, 0xcb },
+	{ ADC5140_CH1_CFG0, 0x01 },
+	{ ADC5140_CH2_CFG0, 0x01 },
+	{ ADC5140_CH3_CFG0, 0x01 },
+	{ ADC5140_CH4_CFG0, 0x01 },
+	{ ADC5140_IN_CH_EN, 0xf0 },
+	{ ADC5140_ASI_OUT_CH_EN, 0xf0 },
+};
+
+static struct adc5140_hack_table tlv320adc5140_dev1[] = {
+	{ ADC5140_ASI_CFG0, 0x35 },
+	{ ADC5140_ASI_CFG1, 0x80 },
+	{ ADC5140_CH1_CFG1, 0x00 },
+	{ ADC5140_CH2_CFG1, 0x00 },
+	{ ADC5140_CH3_CFG1, 0x00 },
+	{ ADC5140_CH4_CFG1, 0x00 },
+	{ ADC5140_CH1_CFG2, 0xff },
+	{ ADC5140_CH2_CFG2, 0xff },
+	{ ADC5140_CH3_CFG2, 0xff },
+	{ ADC5140_CH4_CFG2, 0xff },
+	{ ADC5140_DRE_CFG0, 0xcb },
+	{ ADC5140_ASI_CH1, 0x04 },
+	{ ADC5140_ASI_CH2, 0x05 },
+	{ ADC5140_ASI_CH3, 0x06 },
+	{ ADC5140_ASI_CH4, 0x07 },
+	{ ADC5140_CH1_CFG0, 0x01 },
+	{ ADC5140_CH2_CFG0, 0x01 },
+	{ ADC5140_CH3_CFG0, 0x01 },
+	{ ADC5140_CH4_CFG0, 0x01 },
+	{ ADC5140_IN_CH_EN, 0xf0 },
+	{ ADC5140_ASI_OUT_CH_EN, 0xf0 },
+};
+
 static int adc5410_init_hack(struct adc5140_priv *adc5140)
 {
+	struct adc5140_hack_table *regs_to_write;
+	unsigned i, reg_count;
 	int ret;
 
-printk("%s: Enter\n", __func__);
 	ret = regmap_write(adc5140->regmap, ADC5140_SLEEP_CFG, 0x81);
 	if (ret)
 		goto out;
@@ -397,37 +451,22 @@ printk("%s: Enter\n", __func__);
 	if (ret)
 		goto out;
 
-	ret = regmap_write(adc5140->regmap, ADC5140_ASI_CFG0, 0x30);
-	if (ret)
-		goto out;
+	msleep(10);
 
-	ret = regmap_write(adc5140->regmap, ADC5140_CH1_CFG0, 0x4c);
-	if (ret)
-		goto out;
+	if (adc5140->device_number) {
+		regs_to_write = &tlv320adc5140_dev1[0];
+		reg_count = sizeof(tlv320adc5140_dev1) / sizeof(tlv320adc5140_dev1[0]);
+	} else {
+		regs_to_write = &tlv320adc5140_dev0[0];
+		reg_count = sizeof(tlv320adc5140_dev0) / sizeof(tlv320adc5140_dev0[0]);
+	}
 
-	ret = regmap_write(adc5140->regmap, ADC5140_CH2_CFG0, 0x4c);
-	if (ret)
-		goto out;
-
-	ret = regmap_write(adc5140->regmap, ADC5140_CH3_CFG0, 0x4c);
-	if (ret)
-		goto out;
-
-	ret = regmap_write(adc5140->regmap, ADC5140_CH4_CFG0, 0x4c);
-	if (ret)
-		goto out;
-
-	ret = regmap_write(adc5140->regmap, ADC5140_IN_CH_EN, 0xf0);
-	if (ret)
-		goto out;
-
-	ret = regmap_write(adc5140->regmap, ADC5140_ASI_OUT_CH_EN, 0xf0);
-	if (ret)
-		goto out;
-
-	ret = regmap_write(adc5140->regmap, ADC5140_PWR_CFG, 0xe0);
-	if (ret)
-		goto out;
+	for (i = 0; i < reg_count; i++) {
+		ret = regmap_write(adc5140->regmap, regs_to_write[i].reg,
+				   regs_to_write[i].value);
+		if (ret)
+			goto out;
+	}
 
 out:
 	return ret;
@@ -440,11 +479,11 @@ static int adc5140_codec_probe(struct snd_soc_codec *codec)
 	int ret;
 
 	dev_dbg(adc5140->dev, "## %s\n", __func__);
-printk("%s: Enter\n", __func__);
 
 	regcache_cache_only(adc5140->regmap, true);
 	regcache_mark_dirty(adc5140->regmap);
 
+	adc5410_init_hack(adc5140);
 
 	snd_soc_add_codec_controls(codec, adc5140_snd_controls,
 			ARRAY_SIZE(adc5140_snd_controls));
@@ -466,21 +505,21 @@ static int adc5140_set_bias_level(struct snd_soc_codec *codec,
 				enum snd_soc_bias_level level)
 {
 	struct adc5140_priv *adc5140 = snd_soc_codec_get_drvdata(codec);
-
+	int ret = 0;
 
 	dev_dbg(adc5140->dev, "## %s:Enter\n", __func__);
 	switch (level) {
 	case SND_SOC_BIAS_ON:
-		break;
 	case SND_SOC_BIAS_PREPARE:
-		break;
 	case SND_SOC_BIAS_STANDBY:
+		ret = regmap_write(adc5140->regmap, ADC5140_PWR_CFG, 0xe0);
 		break;
 	case SND_SOC_BIAS_OFF:
+		ret = regmap_write(adc5140->regmap, ADC5140_PWR_CFG, 0x00);
 		break;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int adc5140_codec_remove(struct snd_soc_codec *codec)
@@ -522,6 +561,21 @@ static const struct of_device_id tlv320adc5140_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, tlv320adc5140_of_match);
 
+static int adc5140_parse_node(struct adc5140_priv *adc5140)
+{
+	int ret;
+
+	/* This is a hack for multiple devices */
+	ret = device_property_read_u32_array(adc5140->dev, "dev_num",
+					     &adc5140->device_number, 1);
+	if (ret) {
+		dev_err(adc5140->dev, "reg DT property missing\n");
+		return ret;
+	}
+
+	return ret;
+}
+
 static int adc5140_i2c_probe(struct i2c_client *i2c,
 			     const struct i2c_device_id *id)
 {
@@ -546,11 +600,13 @@ static int adc5140_i2c_probe(struct i2c_client *i2c,
 	adc5140->dev = &i2c->dev;
 
 	i2c_set_clientdata(i2c, adc5140);
+
+	adc5140_parse_node(adc5140);
+
 #ifdef TLV320ADC5140_REG_DEBUG
 	/* For Debug only */
 	tlv320adc5140_init_debug(adc5140);
 #endif
-	adc5410_init_hack(adc5140);
 
 	return snd_soc_register_codec(&i2c->dev,
 				&soc_codec_driver_adc5140,
