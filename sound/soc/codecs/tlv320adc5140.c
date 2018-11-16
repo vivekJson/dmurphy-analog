@@ -23,8 +23,6 @@
 
 #include "tlv320adc5140.h"
 
-#define TLV320ADC5140_REG_DEBUG 1
-
 #define ADC5140_RESET	BIT(0)
 
 #define ADC5140_BCLKINV_BIT	BIT(2)
@@ -32,6 +30,7 @@
 #define ADC5140_I2S_MODE_BIT	BIT(6)
 #define ADC5140_LEFT_JUST_BIT	BIT(7)
 
+#define ADC5140_16_BIT_WORD	0x0
 #define ADC5140_20_BIT_WORD	BIT(4)
 #define ADC5140_24_BIT_WORD	BIT(5)
 #define ADC5140_32_BIT_WORD	(BIT(4) | BIT(5))
@@ -64,50 +63,133 @@ static const struct regmap_config adc5140_i2c_regmap = {
 	.max_register = 12 * 128,
 };
 
+/* Digital Volume control. From -100 to 27 dB in 0.5 dB steps */
+static DECLARE_TLV_DB_SCALE(dig_vol_tlv, -10000, 50, 0);
 
-static const char * const mic_select_text[] = {
+/* ADC gain. From 0 to 42 dB in 1 dB steps */
+static DECLARE_TLV_DB_SCALE(adc_tlv, 0, 100, 0);
+
+static const char * const resistor_text[] = {
 	"2.5 kOhm", "10 kOhm", "20 kOhm"
 };
+/* Left mixer pins */
+static SOC_ENUM_SINGLE_DECL(in1_resistor_enum, ADC5140_CH1_CFG0, 2, resistor_text);
+static SOC_ENUM_SINGLE_DECL(in2_resistor_enum, ADC5140_CH2_CFG0, 2, resistor_text);
+static SOC_ENUM_SINGLE_DECL(in3_resistor_enum, ADC5140_CH3_CFG0, 2, resistor_text);
+static SOC_ENUM_SINGLE_DECL(in4_resistor_enum, ADC5140_CH4_CFG0, 2, resistor_text);
 
-static const DECLARE_TLV_DB_SCALE(adc_fgain_tlv, 0, 50, 0);
+static const struct snd_kcontrol_new in1_resistor_controls[] = {
+	SOC_DAPM_ENUM("CH1 Resistor Select", in1_resistor_enum),
+};
+static const struct snd_kcontrol_new in2_resistor_controls[] = {
+	SOC_DAPM_ENUM("CH2 Resistor Select", in2_resistor_enum),
+};
+static const struct snd_kcontrol_new in3_resistor_controls[] = {
+	SOC_DAPM_ENUM("CH3 Resistor Select", in3_resistor_enum),
+};
+static const struct snd_kcontrol_new in4_resistor_controls[] = {
+	SOC_DAPM_ENUM("CH4 Resistor Select", in4_resistor_enum),
+};
 
-static SOC_ENUM_SINGLE_DECL(mic1p_p_enum, ADC5140_CH1_CFG0, 2,
-	mic_select_text);
-static SOC_ENUM_SINGLE_DECL(mic2p_p_enum, ADC5140_CH2_CFG0, 2,
-	mic_select_text);
-static SOC_ENUM_SINGLE_DECL(mic3p_p_enum, ADC5140_CH3_CFG0, 2,
-	mic_select_text);
-static SOC_ENUM_SINGLE_DECL(mic4p_p_enum, ADC5140_CH4_CFG0, 2,
-	mic_select_text);
-static SOC_ENUM_SINGLE_DECL(mic1m_p_enum, ADC5140_CH1_CFG0, 2,
-	mic_select_text);
-static SOC_ENUM_SINGLE_DECL(mic2m_p_enum, ADC5140_CH2_CFG0, 2,
-	mic_select_text);
-static SOC_ENUM_SINGLE_DECL(mic3m_p_enum, ADC5140_CH3_CFG0, 2,
-	mic_select_text);
-static SOC_ENUM_SINGLE_DECL(mic4m_p_enum, ADC5140_CH4_CFG0, 2,
-	mic_select_text);
+/* Analog/Digital Selection */
+static const char *adc5140_mic_sel_text[] = {"Analog", "Line In", "Digital"};
+static const char *adc5140_analog_sel_text[] = {"Analog", "Line In"};
 
-static const struct snd_kcontrol_new p_term_mic1p =
-	SOC_DAPM_ENUM("MIC1P P-Terminal", mic1p_p_enum);
-static const struct snd_kcontrol_new p_term_mic2p =
-	SOC_DAPM_ENUM("MIC2P P-Terminal", mic2p_p_enum);
-static const struct snd_kcontrol_new p_term_mic3p =
-	SOC_DAPM_ENUM("MIC3P P-Terminal", mic3p_p_enum);
-static const struct snd_kcontrol_new p_term_mic4p =
-	SOC_DAPM_ENUM("MIC4P P-Terminal", mic4p_p_enum);
-static const struct snd_kcontrol_new p_term_mic1m =
-	SOC_DAPM_ENUM("MIC1M M-Terminal", mic1m_p_enum);
-static const struct snd_kcontrol_new p_term_mic2m =
-	SOC_DAPM_ENUM("MIC2M M-Terminal", mic2m_p_enum);
-static const struct snd_kcontrol_new p_term_mic3m =
-	SOC_DAPM_ENUM("MIC3M M-Terminal", mic3m_p_enum);
-static const struct snd_kcontrol_new p_term_mic4m =
-	SOC_DAPM_ENUM("MIC4M M-Terminal", mic4m_p_enum);
+static SOC_ENUM_SINGLE_DECL(adc5140_mic1p_enum,
+			    ADC5140_CH1_CFG0, 5,
+			    adc5140_mic_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic1p_control =
+SOC_DAPM_ENUM("MIC1P MUX", adc5140_mic1p_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic1_analog_enum,
+			    ADC5140_CH1_CFG0, 7,
+			    adc5140_analog_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic1_analog_control =
+SOC_DAPM_ENUM("MIC1 Analog MUX", adc5140_mic1_analog_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic1m_enum,
+			    ADC5140_CH1_CFG0, 5,
+			    adc5140_mic_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic1m_control =
+SOC_DAPM_ENUM("MIC1M MUX", adc5140_mic1m_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic2p_enum,
+			    ADC5140_CH2_CFG0, 5,
+			    adc5140_mic_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic2p_control =
+SOC_DAPM_ENUM("MIC2P MUX", adc5140_mic2p_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic2_analog_enum,
+			    ADC5140_CH2_CFG0, 7,
+			    adc5140_analog_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic2_analog_control =
+SOC_DAPM_ENUM("MIC2 Analog MUX", adc5140_mic2_analog_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic2m_enum,
+			    ADC5140_CH2_CFG0, 5,
+			    adc5140_mic_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic2m_control =
+SOC_DAPM_ENUM("MIC2M MUX", adc5140_mic2m_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic3p_enum,
+			    ADC5140_CH3_CFG0, 5,
+			    adc5140_mic_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic3p_control =
+SOC_DAPM_ENUM("MIC3P MUX", adc5140_mic3p_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic3_analog_enum,
+			    ADC5140_CH3_CFG0, 7,
+			    adc5140_analog_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic3_analog_control =
+SOC_DAPM_ENUM("MIC3 Analog MUX", adc5140_mic3_analog_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic3m_enum,
+			    ADC5140_CH3_CFG0, 5,
+			    adc5140_mic_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic3m_control =
+SOC_DAPM_ENUM("MIC3M MUX", adc5140_mic3m_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic4p_enum,
+			    ADC5140_CH4_CFG0, 5,
+			    adc5140_mic_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic4p_control =
+SOC_DAPM_ENUM("MIC4P MUX", adc5140_mic4p_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic4_analog_enum,
+			    ADC5140_CH4_CFG0, 7,
+			    adc5140_analog_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic4_analog_control =
+SOC_DAPM_ENUM("MIC4 Analog MUX", adc5140_mic4_analog_enum);
+
+static SOC_ENUM_SINGLE_DECL(adc5140_mic4m_enum,
+			    ADC5140_CH4_CFG0, 5,
+			    adc5140_mic_sel_text);
+
+static const struct snd_kcontrol_new adc5140_dapm_mic4m_control =
+SOC_DAPM_ENUM("MIC4M MUX", adc5140_mic4m_enum);
+
+/* Output Mixer */
+static const struct snd_kcontrol_new adc5140_output_mixer_controls[] = {
+	SOC_DAPM_SINGLE("Digital CH1 Switch", 0, 0, 0, 0),
+	SOC_DAPM_SINGLE("Digital CH2 Switch", 0, 0, 0, 0),
+	SOC_DAPM_SINGLE("Digital CH3 Switch", 0, 0, 0, 0),
+	SOC_DAPM_SINGLE("Digital CH4 Switch", 0, 0, 0, 0),
+};
 
 static const struct snd_soc_dapm_widget adc5140_dapm_widgets[] = {
-	/* Inputs */
-	SND_SOC_DAPM_INPUT("MIC1"),
+
+	/* Analog Differential Inputs */
 	SND_SOC_DAPM_INPUT("MIC1P"),
 	SND_SOC_DAPM_INPUT("MIC1M"),
 	SND_SOC_DAPM_INPUT("MIC2P"),
@@ -117,124 +199,165 @@ static const struct snd_soc_dapm_widget adc5140_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("MIC4P"),
 	SND_SOC_DAPM_INPUT("MIC4M"),
 
+	SND_SOC_DAPM_OUTPUT("CH1_OUT"),
+	SND_SOC_DAPM_OUTPUT("CH2_OUT"),
+	SND_SOC_DAPM_OUTPUT("CH3_OUT"),
+	SND_SOC_DAPM_OUTPUT("CH4_OUT"),
+	SND_SOC_DAPM_OUTPUT("CH5_OUT"),
+	SND_SOC_DAPM_OUTPUT("CH6_OUT"),
+	SND_SOC_DAPM_OUTPUT("CH7_OUT"),
+	SND_SOC_DAPM_OUTPUT("CH8_OUT"),
+
+	SND_SOC_DAPM_MIXER("Output Mixer", SND_SOC_NOPM, 0, 0,
+		&adc5140_output_mixer_controls[0],
+		ARRAY_SIZE(adc5140_output_mixer_controls)),
+
 	/* Input Selection to MIC_PGA */
-	SND_SOC_DAPM_MUX("MIC1P P-Terminal", SND_SOC_NOPM, 0, 0,
-			 &p_term_mic1p),
-	SND_SOC_DAPM_MUX("MIC2P P-Terminal", SND_SOC_NOPM, 0, 0,
-			 &p_term_mic2p),
-	SND_SOC_DAPM_MUX("MIC3P P-Terminal", SND_SOC_NOPM, 0, 0,
-			 &p_term_mic3p),
-	SND_SOC_DAPM_MUX("MIC4P P-Terminal", SND_SOC_NOPM, 0, 0,
-			 &p_term_mic4p),
+	SND_SOC_DAPM_MUX("MIC1P Input Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic1p_control),
+	SND_SOC_DAPM_MUX("MIC2P Input Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic2p_control),
+	SND_SOC_DAPM_MUX("MIC3P Input Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic3p_control),
+	SND_SOC_DAPM_MUX("MIC4P Input Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic4p_control),
 
-	SND_SOC_DAPM_MUX("MIC1M M-Terminal", SND_SOC_NOPM, 0, 0,
-			 &p_term_mic1m),
-	SND_SOC_DAPM_MUX("MIC2M M-Terminal", SND_SOC_NOPM, 0, 0,
-			 &p_term_mic2m),
-	SND_SOC_DAPM_MUX("MIC3M M-Terminal", SND_SOC_NOPM, 0, 0,
-			 &p_term_mic3m),
-	SND_SOC_DAPM_MUX("MIC4M M-Terminal", SND_SOC_NOPM, 0, 0,
-			 &p_term_mic4m),
+	/* Input Selection to MIC_PGA */
+	SND_SOC_DAPM_MUX("MIC1 Analog Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic1_analog_control),
+	SND_SOC_DAPM_MUX("MIC2 Analog Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic2_analog_control),
+	SND_SOC_DAPM_MUX("MIC3 Analog Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic3_analog_control),
+	SND_SOC_DAPM_MUX("MIC4 Analog Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic4_analog_control),
 
-	/* Enabling & Disabling MIC Gain Ctl */
-	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH1", ADC5140_CH1_CFG1,
-			 7, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH2", ADC5140_CH2_CFG1,
-			 7, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH3", ADC5140_CH3_CFG1,
-			 7, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH4", ADC5140_CH4_CFG1,
-			 7, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH5", ADC5140_CH5_CFG1,
-			 7, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH6", ADC5140_CH6_CFG1,
-			 7, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH7", ADC5140_CH7_CFG1,
-			 7, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH8", ADC5140_CH8_CFG1,
-			 7, 1, NULL, 0),
+	SND_SOC_DAPM_MUX("MIC1M Input Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic1m_control),
+	SND_SOC_DAPM_MUX("MIC2M Input Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic2m_control),
+	SND_SOC_DAPM_MUX("MIC3M Input Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic3m_control),
+	SND_SOC_DAPM_MUX("MIC4M Input Mux", SND_SOC_NOPM, 0, 0,
+			 &adc5140_dapm_mic4m_control),
 
-	SND_SOC_DAPM_ADC("ADC", "Capture", 0, 0, 0),
+	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH2", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH3", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("MIC_GAIN_CTL_CH4", SND_SOC_NOPM, 0, 0, NULL, 0),
 
-	SND_SOC_DAPM_AIF_OUT("AIF OUT", "Capture", 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_ADC("CH1_ADC", "CH1 Capture", ADC5140_IN_CH_EN, 7, 0),
+	SND_SOC_DAPM_ADC("CH2_ADC", "CH2 Capture", ADC5140_IN_CH_EN, 6, 0),
+	SND_SOC_DAPM_ADC("CH3_ADC", "CH3 Capture", ADC5140_IN_CH_EN, 5, 0),
+	SND_SOC_DAPM_ADC("CH4_ADC", "CH4 Capture", ADC5140_IN_CH_EN, 4, 0),
+
+	SND_SOC_DAPM_MUX("IN1 Analog Mic Resistor", SND_SOC_NOPM, 0, 0,
+			in1_resistor_controls),
+	SND_SOC_DAPM_MUX("IN2 Analog Mic Resistor", SND_SOC_NOPM, 0, 0,
+			in2_resistor_controls),
+	SND_SOC_DAPM_MUX("IN3 Analog Mic Resistor", SND_SOC_NOPM, 0, 0,
+			in3_resistor_controls),
+	SND_SOC_DAPM_MUX("IN4 Analog Mic Resistor", SND_SOC_NOPM, 0, 0,
+			in4_resistor_controls),
 };
 
 static const struct snd_soc_dapm_route adc5140_audio_map[] = {
+	/* Outputs */
+	{"CH1_OUT", NULL, "Output Mixer"},
+	{"CH2_OUT", NULL, "Output Mixer"},
+	{"CH3_OUT", NULL, "Output Mixer"},
+	{"CH4_OUT", NULL, "Output Mixer"},
+
 	/* Mic input */
-	{"MIC1P P-Terminal", "2.5 kOhm", "MIC1P"},
-	{"MIC1P P-Terminal", "10 kOhm", "MIC1P"},
-	{"MIC1P P-Terminal", "20 kOhm", "MIC1P"},
+	{"CH1_ADC", NULL, "MIC_GAIN_CTL_CH1"},
+	{"CH2_ADC", NULL, "MIC_GAIN_CTL_CH2"},
+	{"CH3_ADC", NULL, "MIC_GAIN_CTL_CH3"},
+	{"CH4_ADC", NULL, "MIC_GAIN_CTL_CH4"},
 
-	{"MIC2P P-Terminal", "2.5 kOhm", "MIC2P"},
-	{"MIC2P P-Terminal", "10 kOhm", "MIC2P"},
-	{"MIC2P P-Terminal", "20 kOhm", "MIC2P"},
+	{"MIC_GAIN_CTL_CH1", NULL, "IN1 Analog Mic Resistor"},
+	{"MIC_GAIN_CTL_CH1", NULL, "IN1 Analog Mic Resistor"},
+	{"MIC_GAIN_CTL_CH2", NULL, "IN2 Analog Mic Resistor"},
+	{"MIC_GAIN_CTL_CH2", NULL, "IN2 Analog Mic Resistor"},
+	{"MIC_GAIN_CTL_CH3", NULL, "IN3 Analog Mic Resistor"},
+	{"MIC_GAIN_CTL_CH3", NULL, "IN3 Analog Mic Resistor"},
+	{"MIC_GAIN_CTL_CH4", NULL, "IN4 Analog Mic Resistor"},
+	{"MIC_GAIN_CTL_CH4", NULL, "IN4 Analog Mic Resistor"},
 
-	{"MIC3P P-Terminal", "2.5 kOhm", "MIC3P"},
-	{"MIC3P P-Terminal", "10 kOhm", "MIC3P"},
-	{"MIC3P P-Terminal", "20 kOhm", "MIC3P"},
+	{"IN1 Analog Mic Resistor", "2.5 kOhm", "MIC1P Input Mux"},
+	{"IN1 Analog Mic Resistor", "10 kOhm", "MIC1P Input Mux"},
+	{"IN1 Analog Mic Resistor", "20 kOhm", "MIC1P Input Mux"},
 
-	{"MIC4P P-Terminal", "2.5 kOhm", "MIC4P"},
-	{"MIC4P P-Terminal", "10 kOhm", "MIC4P"},
-	{"MIC4P P-Terminal", "20 kOhm", "MIC4P"},
+	{"IN1 Analog Mic Resistor", "2.5 kOhm", "MIC1M Input Mux"},
+	{"IN1 Analog Mic Resistor", "10 kOhm", "MIC1M Input Mux"},
+	{"IN1 Analog Mic Resistor", "20 kOhm", "MIC1M Input Mux"},
 
-	{"MIC1M M-Terminal", "2.5 kOhm", "MIC1M"},
-	{"MIC1M M-Terminal", "10 kOhm", "MIC1M"},
-	{"MIC1M M-Terminal", "20 kOhm", "MIC1M"},
+	{"IN2 Analog Mic Resistor", "2.5 kOhm", "MIC2P Input Mux"},
+	{"IN2 Analog Mic Resistor", "10 kOhm", "MIC2P Input Mux"},
+	{"IN2 Analog Mic Resistor", "20 kOhm", "MIC2P Input Mux"},
 
-	{"MIC2M M-Terminal", "2.5 kOhm", "MIC2M"},
-	{"MIC2M M-Terminal", "10 kOhm", "MIC2M"},
-	{"MIC2M M-Terminal", "20 kOhm", "MIC2M"},
+	{"IN2 Analog Mic Resistor", "2.5 kOhm", "MIC2M Input Mux"},
+	{"IN2 Analog Mic Resistor", "10 kOhm", "MIC2M Input Mux"},
+	{"IN2 Analog Mic Resistor", "20 kOhm", "MIC2M Input Mux"},
 
-	{"MIC3M M-Terminal", "2.5 kOhm", "MIC3M"},
-	{"MIC3M M-Terminal", "10 kOhm", "MIC3M"},
-	{"MIC3M M-Terminal", "20 kOhm", "MIC3M"},
+	{"IN3 Analog Mic Resistor", "2.5 kOhm", "MIC3P Input Mux"},
+	{"IN3 Analog Mic Resistor", "10 kOhm", "MIC3P Input Mux"},
+	{"IN3 Analog Mic Resistor", "20 kOhm", "MIC3P Input Mux"},
 
-	{"MIC4M M-Terminal", "2.5 kOhm", "MIC4M"},
-	{"MIC4M M-Terminal", "10 kOhm", "MIC4M"},
-	{"MIC4M M-Terminal", "20 kOhm", "MIC4M"},
+	{"IN3 Analog Mic Resistor", "2.5 kOhm", "MIC3M Input Mux"},
+	{"IN3 Analog Mic Resistor", "10 kOhm", "MIC3M Input Mux"},
+	{"IN3 Analog Mic Resistor", "20 kOhm", "MIC3M Input Mux"},
 
-	{"MIC_GAIN_CTL_CH1", NULL, "MIC1P P-Terminal"},
-	{"MIC_GAIN_CTL_CH3", NULL, "MIC2P P-Terminal"},
-	{"MIC_GAIN_CTL_CH5", NULL, "MIC3P P-Terminal"},
-	{"MIC_GAIN_CTL_CH7", NULL, "MIC4P P-Terminal"},
-	{"MIC_GAIN_CTL_CH2", NULL, "MIC1M M-Terminal"},
-	{"MIC_GAIN_CTL_CH4", NULL, "MIC2M M-Terminal"},
-	{"MIC_GAIN_CTL_CH6", NULL, "MIC3M M-Terminal"},
-	{"MIC_GAIN_CTL_CH8", NULL, "MIC4M M-Terminal"},
+	{"IN4 Analog Mic Resistor", "2.5 kOhm", "MIC4P Input Mux"},
+	{"IN4 Analog Mic Resistor", "10 kOhm", "MIC4P Input Mux"},
+	{"IN4 Analog Mic Resistor", "20 kOhm", "MIC4P Input Mux"},
 
-	{"ADC", NULL, "MIC_GAIN_CTL_CH1"},
-	{"ADC", NULL, "MIC_GAIN_CTL_CH2"},
-	{"ADC", NULL, "MIC_GAIN_CTL_CH3"},
-	{"ADC", NULL, "MIC_GAIN_CTL_CH4"},
-	{"ADC", NULL, "MIC_GAIN_CTL_CH5"},
-	{"ADC", NULL, "MIC_GAIN_CTL_CH6"},
-	{"ADC", NULL, "MIC_GAIN_CTL_CH7"},
-	{"ADC", NULL, "MIC_GAIN_CTL_CH8"},
+	{"IN4 Analog Mic Resistor", "2.5 kOhm", "MIC4M Input Mux"},
+	{"IN4 Analog Mic Resistor", "10 kOhm", "MIC4M Input Mux"},
+	{"IN4 Analog Mic Resistor", "20 kOhm", "MIC4M Input Mux"},
 
-	{"AIF OUT", NULL, "ADC"},
+	{"MIC1 Analog Mux", "Line In", "MIC1P"},
+	{"MIC2 Analog Mux", "Line In", "MIC2P"},
+	{"MIC3 Analog Mux", "Line In", "MIC3P"},
+	{"MIC4 Analog Mux", "Line In", "MIC4P"},
 
-	{"MIC1", NULL, "MIC1P P-Terminal"},
-	{"MIC1", NULL, "MIC1M M-Terminal"},
+	{"MIC1P Input Mux", "Analog", "MIC1P"},
+	{"MIC1M Input Mux", "Analog", "MIC1M"},
+	{"MIC2P Input Mux", "Analog", "MIC2P"},
+	{"MIC2M Input Mux", "Analog", "MIC2M"},
+	{"MIC3P Input Mux", "Analog", "MIC3P"},
+	{"MIC3M Input Mux", "Analog", "MIC3M"},
+	{"MIC4P Input Mux", "Analog", "MIC4P"},
+	{"MIC4M Input Mux", "Analog", "MIC4M"},
 };
 
 static const struct snd_kcontrol_new adc5140_snd_controls[] = {
-	SOC_SINGLE_TLV("Digital Channel 1 Capture Volume", ADC5140_CH1_CFG2,
-			4, 4, 1, adc_fgain_tlv),
-	SOC_SINGLE_TLV("Digital Channel 2 Capture Volume", ADC5140_CH2_CFG2,
-			4, 4, 1, adc_fgain_tlv),
-	SOC_SINGLE_TLV("Digital Channel 3 Capture Volume", ADC5140_CH3_CFG2,
-			4, 4, 1, adc_fgain_tlv),
-	SOC_SINGLE_TLV("Digital Channel 4 Capture Volume", ADC5140_CH4_CFG2,
-			4, 4, 1, adc_fgain_tlv),
-	SOC_SINGLE_TLV("Digital Channel 5 Capture Volume", ADC5140_CH5_CFG2,
-			4, 4, 1, adc_fgain_tlv),
-	SOC_SINGLE_TLV("Digital Channel 6 Capture Volume", ADC5140_CH6_CFG2,
-			4, 4, 1, adc_fgain_tlv),
-	SOC_SINGLE_TLV("Digital Channel 7 Capture Volume", ADC5140_CH7_CFG2,
-			4, 4, 1, adc_fgain_tlv),
-	SOC_SINGLE_TLV("Digital Channel 8 Capture Volume", ADC5140_CH8_CFG2,
-			4, 4, 1, adc_fgain_tlv),
+	SOC_SINGLE_TLV("Analog CH1 Mic Gain", ADC5140_CH1_CFG1, 0, 0x52, 0,
+			adc_tlv),
+	SOC_SINGLE_TLV("Analog CH2 Mic Gain", ADC5140_CH1_CFG2, 0, 0x52, 0,
+			adc_tlv),
+	SOC_SINGLE_TLV("Analog CH3 Mic Gain", ADC5140_CH1_CFG3, 0, 0x52, 0,
+			adc_tlv),
+	SOC_SINGLE_TLV("Analog CH4 Mic Gain", ADC5140_CH1_CFG4, 0, 0x52, 0,
+			adc_tlv),
+
+	SOC_SINGLE_TLV("Digital CH1 Out Volume", ADC5140_CH1_CFG2,
+			0, 0xff, 0, dig_vol_tlv),
+	SOC_SINGLE_TLV("Digital CH2 Out Volume", ADC5140_CH2_CFG2,
+			0, 0xff, 0, dig_vol_tlv),
+	SOC_SINGLE_TLV("Digital CH3 Out Volume", ADC5140_CH3_CFG2,
+			0, 0xff, 0, dig_vol_tlv),
+	SOC_SINGLE_TLV("Digital CH4 Out Volume", ADC5140_CH4_CFG2,
+			0, 0xff, 0, dig_vol_tlv),
+	SOC_SINGLE_TLV("Digital CH5 Out Volume", ADC5140_CH5_CFG2,
+			0, 0xff, 0, dig_vol_tlv),
+	SOC_SINGLE_TLV("Digital CH6 Out Volume", ADC5140_CH6_CFG2,
+			0, 0xff, 0, dig_vol_tlv),
+	SOC_SINGLE_TLV("Digital CH7 Out Volume", ADC5140_CH7_CFG2,
+			0, 0xff, 0, dig_vol_tlv),
+	SOC_SINGLE_TLV("Digital CH8 Out Volume", ADC5140_CH8_CFG2,
+			0, 0xff, 0, dig_vol_tlv),
 };
+
 
 static int adc5140_reset(struct adc5140_priv *adc5140)
 {
@@ -265,6 +388,7 @@ static int adc5140_hw_params(struct snd_pcm_substream *substream,
 
 	switch (params_width(params)) {
 	case 16:
+		data = ADC5140_16_BIT_WORD;
 		break;
 	case 20:
 		data = ADC5140_20_BIT_WORD;
@@ -482,8 +606,6 @@ out:
 static int adc5140_codec_probe(struct snd_soc_codec *codec)
 {
 	struct adc5140_priv *adc5140 = snd_soc_codec_get_drvdata(codec);
-	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
-	int ret;
 
 	dev_dbg(adc5140->dev, "## %s\n", __func__);
 
@@ -491,19 +613,6 @@ static int adc5140_codec_probe(struct snd_soc_codec *codec)
 	regcache_mark_dirty(adc5140->regmap);
 
 	adc5410_init_hack(adc5140);
-
-	snd_soc_add_codec_controls(codec, adc5140_snd_controls,
-			ARRAY_SIZE(adc5140_snd_controls));
-
-	ret = snd_soc_dapm_new_controls(dapm, adc5140_dapm_widgets,
-			ARRAY_SIZE(adc5140_dapm_widgets));
-	if (ret)
-		return ret;
-
-	ret = snd_soc_dapm_add_routes(dapm, adc5140_audio_map,
-				      ARRAY_SIZE(adc5140_audio_map));
-	if (ret)
-		return ret;
 
 	return 0;
 }
