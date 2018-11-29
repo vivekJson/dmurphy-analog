@@ -61,12 +61,28 @@
 	};
 
 	mcasp0_pins: mcasp0_pins {
+#if 0
 		pinctrl-single,pins = <
 			AM33XX_IOPAD(0x9ac, PIN_INPUT_PULLUP | MUX_MODE0) /* mcasp0_ahcklx.mcasp0_ahclkx */
 			AM33XX_IOPAD(0x99c, PIN_OUTPUT_PULLDOWN | MUX_MODE2) /* mcasp0_ahclkr.mcasp0_axr2*/
 			AM33XX_IOPAD(0x994, PIN_OUTPUT_PULLUP | MUX_MODE0) /* mcasp0_fsx.mcasp0_fsx */
 			AM33XX_IOPAD(0x990, PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* mcasp0_aclkx.mcasp0_aclkx */
 			AM33XX_IOPAD(0x86c, PIN_OUTPUT_PULLDOWN | MUX_MODE7) /* gpmc_a11.GPIO1_27 */
+		>;
+#endif
+	};
+
+	spi1_pins: pinmux_spi1_pins {
+		pinctrl-single,pins = <
+                                0x190 0x33      /* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+
+				0x194 0x33      /* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+				0x198 0x13      /* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+                                0x19c 0x13      /* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+#if 0
+				0x194 (PIN_OUTPUT_PULLUP | MUX_MODE3)      /* mcasp0_fsx.spi1_d0, OUTPUT_PULLUP | MODE3 */
+                                0x198 0x33      /* mcasp0_axr0.spi1_d1, INPUT_PULLUP | MODE3 */
+#endif
 		>;
 	};
 };
@@ -94,7 +110,7 @@
 		reg = <0x70>;
 		nxp,calib-gpios = <&gpio1 25 0>;
 		interrupts-extended = <&gpio1 25 IRQ_TYPE_LEVEL_LOW>;
-
+		status = "disabled";
 		pinctrl-names = "default", "off";
 		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
 		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
@@ -123,7 +139,7 @@
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcasp0_pins>;
-	status = "okay";
+	status = "disabled";
 	op-mode = <0>;	/* MCASP_IIS_MODE */
 	tdm-slots = <2>;
 	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
@@ -162,5 +178,21 @@
 		simple-audio-card,codec {
 			sound-dai = <&tda19988>;
 		};
+	};
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+	status = "okay";
+
+	ads124s: ads124s@0 {
+		compatible = "ti,ads124s08";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <1000000>;
+		spi-cpha;
+		reset-gpios = <&gpio1 16 GPIO_ACTIVE_LOW>;
 	};
 };
