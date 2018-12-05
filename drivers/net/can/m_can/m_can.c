@@ -414,6 +414,9 @@ static inline void m_can_config_endisable(const struct m_can_priv *priv,
 	u32 timeout = 10;
 	u32 val = 0;
 
+	if (cccr & CCCR_CSR)
+		cccr &= ~CCCR_CSR;
+
 	if (enable) {
 		/* enable m_can configuration */
 		m_can_write(priv, M_CAN_CCCR, cccr | CCCR_INIT);
@@ -1155,6 +1158,9 @@ static void m_can_chip_config(struct net_device *dev)
 	m_can_set_bittiming(dev);
 
 	m_can_config_endisable(priv, false);
+
+	if (priv->device_init)
+		priv->device_init(priv);
 }
 
 static void m_can_start(struct net_device *dev)
