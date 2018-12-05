@@ -156,7 +156,7 @@ int m_can_core_register(struct m_can_classdev *m_can_dev);
 void m_can_core_unregister(struct m_can_classdev *m_can_dev);
 int m_can_core_get_clocks(struct m_can_classdev *m_can_dev);
 void m_can_init_ram(struct m_can_classdev *priv);
-void m_can_config_endisable(const struct m_can_classdev *priv, bool enable);
+void m_can_config_endisable(struct m_can_classdev *priv, bool enable);
 
 int m_can_core_suspend(struct device *dev);
 int m_can_core_resume(struct device *dev);
