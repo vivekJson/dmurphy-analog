@@ -185,6 +185,20 @@
 			AM33XX_IOPAD(0x81c, PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad7.mmc1_dat7 */
 		>;
 	};
+
+	spi1_pins: pinmux_spi1_pins {
+		pinctrl-single,pins = <
+                        0x190 0x33      /* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+                        0x194 0x33      /* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+                        0x198 0x13      /* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+                        0x19c 0x13      /* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+			/* 0x78  (PIN_INPUT_PULLDOWN | MUX_MODE7) gpio1_28 OUTPUT_PULLUP | MODE7 */
+			AM33XX_IOPAD(0x838, PIN_INPUT_PULLUP | MUX_MODE7)	/* gpmc_a0.gpio1_14 */
+			AM33XX_IOPAD(0x83c, PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a1.gpio1_15 */
+			/*AM33XX_IOPAD(0x878, PIN_INPUT_PULLDOWN | MUX_MODE7)	 gpmc_a1.gpio1_28 */
+			0x1ac 0x37 /* gpio3_21 */
+		>;
+	};
 };
 
 &uart0 {
@@ -421,4 +435,24 @@
 &rtc {
 	clocks = <&clk_32768_ck>, <&clk_24mhz_clkctrl AM3_CLK_24MHZ_CLKDIV32K_CLKCTRL 0>;
 	clock-names = "ext-clk", "int-clk";
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+	status = "okay";
+
+	tcan4x5x: tcan4x5x@0 {
+		compatible = "ti,tcan4x5x";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <10000000>;
+		bosch,mram-cfg = <0x0 0 0 32 0 0 1 1>;
+		data-ready-gpios = <&gpio1 14 GPIO_ACTIVE_LOW>;
+		device-state-gpios = <&gpio3 21 GPIO_ACTIVE_HIGH>;		
+		device-wake-gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;
+
+/*		reset-gpios = <&gpio1 27 GPIO_ACTIVE_LOW>;*/
+	};
 };
