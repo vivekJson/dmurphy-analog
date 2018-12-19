@@ -256,45 +256,51 @@
 	status = "okay";
 	clock-frequency = <100000>;
 
-	cape_eeprom0: cape_eeprom0@54 {
-		compatible = "atmel,24c256";
-		reg = <0x54>;
+	led-controller@28 {
 		#address-cells = <1>;
-		#size-cells = <1>;
-		cape0_data: cape_data@0 {
-			reg = <0 0x100>;
+		#size-cells = <0>;
+		compatible = "ti,lp5024";
+		reg = <0x28>;
+		/*enable-gpios = <&gpio1 28 GPIO_ACTIVE_HIGH>;*/
+		vled-supply = <&vmmcsd_fixed>;
+		led@0 {
+		        reg = <0>;
+		        label = "meh";
+			led-sources = <1>;
+		        /*linux,default-trigger = "backlight";*/
+		};
+
+		led@1 {
+		        reg = <1>;
+		        label = "dis";
+			led-sources = <0 2>;
+			ti,control-bank;
+		        /*linux,default-trigger = "backlight";*/
+		};
+
+		led@2 {
+		        reg = <2>;
+		        label = "dat";
+			led-sources = <4>;
+		        /*linux,default-trigger = "backlight";*/
+		};
+
+		led@3 {
+		        reg = <3>;
+		        label = "other_thing";
+			led-sources = <7>;
+		        linux,default-trigger = "backlight";
+		};
+
+		led@4 {
+		        reg = <4>;
+		        label = "some_thing";
+			led-sources = <6>;
+		        linux,default-trigger = "backlight";
 		};
 	};
 
-	cape_eeprom1: cape_eeprom1@55 {
-		compatible = "atmel,24c256";
-		reg = <0x55>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape1_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
 
-	cape_eeprom2: cape_eeprom2@56 {
-		compatible = "atmel,24c256";
-		reg = <0x56>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape2_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-
-	cape_eeprom3: cape_eeprom3@57 {
-		compatible = "atmel,24c256";
-		reg = <0x57>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape3_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
 };
 
 
