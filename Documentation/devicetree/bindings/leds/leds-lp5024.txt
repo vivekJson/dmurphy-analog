@@ -1,0 +1,63 @@
+* Texas Instruments - LP5024/18 RGB LED driver
+
+The LP5024/18 is 24-Channel, I2C RGB LED Drivers that can group RGB LEDs into
+a LED group or control them individually.
+
+The main difference between the LP5024 and L5018 is the number of
+RGB LEDs they support.  The LP5024 supports twenty four strings while the
+LP5018 supports eighteen strings.
+
+Required properties:
+	- compatible:
+		"ti,lp5018"
+		"ti,lp5024"
+	- reg :  I2C slave address
+	- #address-cells : 1
+	- #size-cells : 0
+
+Optional properties:
+	- enable-gpios : gpio pin to enable/disable the device.
+	- vled-supply : LED supply
+
+Required child properties:
+	- reg : Is the child node iteration.
+	- led-sources : LP5024 - 0 - 7
+			LP5018 - 0 - 5
+			Declares the LED string or strings that the child node
+			will control.  If ti,control-bank is set then this
+			property will contain multiple LED IDs.
+
+Optional child properties:
+	- label : see Documentation/devicetree/bindings/leds/common.txt
+	- linux,default-trigger :
+	   see Documentation/devicetree/bindings/leds/common.txt
+	- ti,control-bank : Indicates that the LED strings declared in the
+			    led-sources property are grouped within a control
+			    bank for brightness and mixing control.
+
+Example:
+
+led-controller@28 {
+	compatible = "ti,lp5024";
+	reg = <0x28>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	enable-gpios = <&gpio1 28 GPIO_ACTIVE_HIGH>;
+	vled-supply = <&vbatt>;
+
+	led@0 {
+		reg = <0>;
+		led-sources = <1>;
+	};
+
+	led@1 {
+		reg = <1>;
+		led-sources = <0 6>;
+		ti,control-bank;
+	};
+
+}
+
+For more product information please see the link below:
+http://www.ti.com/lit/ds/symlink/lp5024.pdf
