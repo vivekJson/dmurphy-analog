@@ -775,6 +775,10 @@ config LEDS_NIC78BX
 	  To compile this driver as a module, choose M here: the module
 	  will be called leds-nic78bx.
 
+config LEDS_RGB_TEST
+	tristate "RGB Class Test file"
+	depends on LEDS_CLASS_RGB
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
