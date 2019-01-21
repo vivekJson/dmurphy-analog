@@ -117,6 +117,12 @@
 			vusb-supply = <&vusb>;
 		};
 
+		led_rgb: led-rgb {
+			compatible = "motorola,cpcap-led-rgb";
+			vdd-supply = <&sw5>;
+			label = "status-led:rgb";
+		};
+/*
 		led_red: led-red {
 			compatible = "motorola,cpcap-led-red";
 			vdd-supply = <&sw5>;
@@ -134,7 +140,7 @@
 			vdd-supply = <&sw5>;
 			label = "status-led:blue";
 		};
-
+*/
 		led_adl: led-adl {
 			compatible = "motorola,cpcap-led-adl";
 			vdd-supply = <&sw5>;

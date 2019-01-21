@@ -255,8 +255,62 @@
 
 	status = "okay";
 	clock-frequency = <100000>;
+	led-controller@29 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ti,lp5024";
+		reg = <0x29>;
+		enable-gpios = <&gpio1 28 GPIO_ACTIVE_HIGH>;
+		vled-supply = <&vmmcsd_fixed>;
 
-	cape_eeprom0: cape_eeprom0@54 {
+		led@0 {
+			reg = <0>;
+			label = "led1_mod";
+			ti,led-module = <1>;
+		};
+	};
+
+	led-controller@30 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "rgb,framework_test";
+		reg = <0x30>;
+
+		led@0 {
+		        reg = <0>;
+		        label = "rgb_test1";
+			rgb-sources = < 0xff 1 2 >;
+			rgb-white = < 0xd4 0x01 0x16 >;
+		};
+/*
+		led@1 {
+		        reg = <1>;
+		        label = "rgb_test2";
+			rgb-sources = < 0xff 3 5 >;
+		};*/
+	};
+
+	led-controller@30 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "rgb,framework_test";
+		reg = <0x30>;
+
+		led@0 {
+		        reg = <0>;
+		        label = "rgb_test1";
+			rgb-sources = < 0xff 1 2 >;
+			rgb-white = < 0xd4 0x01 0x16 >;
+		};
+/*
+		led@1 {
+		        reg = <1>;
+		        label = "rgb_test2";
+			rgb-sources = < 0xff 3 5 >;
+		};*/
+	};
+
+/*	cape_eeprom0: cape_eeprom0@54 {
 		compatible = "atmel,24c256";
 		reg = <0x54>;
 		#address-cells = <1>;
@@ -294,7 +348,7 @@
 		cape3_data: cape_data@0 {
 			reg = <0 0x100>;
 		};
-	};
+	};*/
 };
 
 
