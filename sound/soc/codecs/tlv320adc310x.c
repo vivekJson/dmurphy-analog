@@ -1,12 +1,10 @@
+// SPDX-License-Identifier: (GPL-2.0 OR BSD-3-Clause)
 /*
  * ALSA SoC TLV320ADC310X codec driver
  *
  * Author:      Dan Murphy <dmurphy@ti.com>
  * Copyright (C) 2017-2018 Texas Instruments, Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  *
  */
 
@@ -1043,4 +1041,4 @@ module_i2c_driver(adc310x_i2c_driver);
 
 MODULE_DESCRIPTION("ASoC TLV320ADC310X codec driver");
 MODULE_AUTHOR("Dan Murphy");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
