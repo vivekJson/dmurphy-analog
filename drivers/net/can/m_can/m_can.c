@@ -750,22 +750,19 @@ static int m_can_handle_state_errors(struct net_device *dev, u32 psr)
 	struct m_can_classdev *cdev = netdev_priv(dev);
 	int work_done = 0;
 
-	if ((psr & PSR_EW) &&
-	    (cdev->can.state != CAN_STATE_ERROR_WARNING)) {
+	if (psr & PSR_EW && cdev->can.state != CAN_STATE_ERROR_WARNING) {
 		netdev_dbg(dev, "entered error warning state\n");
 		work_done += m_can_handle_state_change(dev,
 						       CAN_STATE_ERROR_WARNING);
 	}
 
-	if ((psr & PSR_EP) &&
-	    (cdev->can.state != CAN_STATE_ERROR_PASSIVE)) {
+	if (psr & PSR_EP && cdev->can.state != CAN_STATE_ERROR_PASSIVE) {
 		netdev_dbg(dev, "entered error passive state\n");
 		work_done += m_can_handle_state_change(dev,
 						       CAN_STATE_ERROR_PASSIVE);
 	}
 
-	if ((psr & PSR_BO) &&
-	    (cdev->can.state != CAN_STATE_BUS_OFF)) {
+	if (psr & PSR_BO && cdev->can.state != CAN_STATE_BUS_OFF) {
 		netdev_dbg(dev, "entered error bus off state\n");
 		work_done += m_can_handle_state_change(dev,
 						       CAN_STATE_BUS_OFF);
