@@ -1,0 +1,37 @@
+Binding for TI bq25150 500-mA Linear charger
+
+The BQ25150 is a highly integrated battery charge management IC that integrates
+the most common functions for wearable devices, namely a charger, an
+output voltage rail, ADC for battery and system monitoring, and
+push-button controller.
+
+Required Properties:
+	- compatible = Should contain "ti,bq25150"
+	- reg: int I2c address 0x6b
+	- #address-cells: 1;
+	- #size-cells: = 0;
+
+Optional Properties:
+	- ti,battery-regulation-voltage: integer, maximum charging voltage in uV.
+	- ti,charge-current: integer, maximum charging current in uA.
+	- reset-gpios: GPIO used for Master reset
+	- low-power-gpios: GPIO used for low power mode of IC.
+	- pg-gpios: GPIO used for connecting the bq2425x device PG (Power Good) pin.
+	    This pin is not available on all devices however it should be used if
+	    possible as this is the recommended way to obtain the charger's input PG
+	    state. If this pin is not specified a software-based approach for PG
+	    detection is used.
+
+Example
+bq25150@6b {
+	compatible = "ti,bq25150";
+	reg = <0x6b>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ti,charge-current = <0x0>;
+	ti,battery-regulation-voltage = <0x0>;
+};
+
+Reference Datasheet:
+http://www.ti.com/lit/ds/symlink/bq25150.pdf
